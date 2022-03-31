@@ -15,12 +15,33 @@ from dao.register import Registers
 
 
 @Registers.dataloaders.register
-def ClsDataloader(
-        is_distributed=False,
-        batch_size=None,
-        num_workers=None,
-        dataset=None,
-        **kwargs):
+def ClsDataloaderTrain(is_distributed=False, batch_size=None, num_workers=None, dataset=None, **kwargs):
+    """
+    ClsDataset的dataloader类
+
+    is_distributed:bool 是否是分布式
+    batch_size: int batchsize大小，多个GPU的batchsize总和
+    num_workers:int 使用线程数
+    dataset:ClsDataset类 配置字典
+    """
+    dataset = Registers.datasets.get(dataset.type)(
+        preproc=get_transformer(dataset.transforms.kwargs),
+        **dataset.kwargs
+    )
+    if is_distributed:
+        batch_size = batch_size // get_world_size()
+        sampler = torch.utils.data.distributed.DistributedSampler(dataset, shuffle=False)
+    else:
+        sampler = torch.utils.data.SequentialSampler(dataset)
+
+    dataloader_kwargs = {"num_workers": num_workers, "pin_memory": True, "sampler": sampler, "batch_size": batch_size}
+
+    dataloader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+    return dataloader, len(dataloader)
+
+
+@Registers.dataloaders.register
+def ClsDataloaderEval(is_distributed=False, batch_size=None, num_workers=None, dataset=None, **kwargs):
     """
     ClsDataset的dataloader类
 
@@ -65,7 +86,7 @@ if __name__ == "__main__":
     from dao.register import Registers
 
     dataloader_c = {
-        "type": "ClsDataloader",
+        "type": "ClsDataloaderTrain",
         "dataset": {
             "type": "ClsDataset",
             "kwargs": {
