@@ -5,4 +5,5 @@
 # @Copy From:
 
 # 分类
+from .datasets import ClsDataset
 from .ClsDataloader import ClsDataloaderTrain, ClsDataloaderEval
