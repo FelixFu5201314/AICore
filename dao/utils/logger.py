@@ -79,11 +79,11 @@ def setup_logger(save_dir, distributed_rank=0, filename="log.txt", mode="a"):
     Return:
         logger instance.
     """
-    loguru_format = (
-        "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-        "<level>{level: <8}</level> | "
-        "<cyan>{name}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
-    )
+    # loguru_format = (
+    #     "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+    #     "<level>{level: <8}</level> | "
+    #     "<cyan>{name}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+    # )
 
     logger.remove()
     save_file = os.path.join(save_dir, filename)
@@ -94,7 +94,7 @@ def setup_logger(save_dir, distributed_rank=0, filename="log.txt", mode="a"):
         os.makedirs(save_dir, exist_ok=True)
         logger.add(
             sys.stderr,
-            format=loguru_format,
+            # format=loguru_format,
             level="INFO",
             enqueue=True,
         )
