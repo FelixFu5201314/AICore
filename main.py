@@ -10,7 +10,9 @@ import argparse
 import random
 import shutil
 import time
+import json
 import warnings
+from dotmap import DotMap
 from datetime import timedelta
 from loguru import logger
 
@@ -21,6 +23,7 @@ import torch.multiprocessing as mp
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))  # 添加dao库到sys.path中
 from dao import Registers, import_all_modules_for_register     # 获得所有组件的Register, 可以从Registers中获得组件
 import dao.utils.dist as comm
+from dao.utils import configure_nccl, configure_module, configure_omp
 
 DEFAULT_TIMEOUT = timedelta(minutes=30)
 
@@ -63,17 +66,6 @@ def make_parser():
 @logger.catch
 def main():
     parsers = make_parser().parse_args()
-
-    # 设置实验随机数
-    if parsers.seed is not None:
-        random.seed(parsers.seed)
-        torch.manual_seed(parsers.seed)
-        torch.backends.cudnn.deterministic = True
-        warnings.warn('You have chosen to seed training. '
-                      'This will turn on the CUDNN deterministic setting, '
-                      'which can slow down your training considerably! '
-                      'You may see unexpected behavior when restarting '
-                      'from checkpoints.')
 
     # ---------------- 分布式 or 单卡 ---------------
     num_machines = parsers.num_machines    # 1. 机器数量
@@ -176,23 +168,45 @@ def _distributed_worker(
 @logger.catch
 def main_worker(modules_file, custom_file, parsers):
     """
-    main_worker, 每个进程(GPU)运行的函数
-    :param modules_file:
-    :param custom_file:
-    :param parsers:
+    每个进程(GPU)运行的函数
+    :param modules_file:    组件文件
+    :param custom_file:     自定义组件文件
+    :param parsers:         从命令行中获取的内容
     :return:
     """
-    print(modules_file)
-    print(custom_file)
-    print(parsers)
-    print(comm._LOCAL_PROCESS_GROUP)
-    print(comm.get_local_rank())
-    print(comm.get_rank())
-    # import_all_modules_for_register()
+    # 1.设置实验随机数
+    if parsers.seed != 0:
+        random.seed(parsers.seed)
+        torch.manual_seed(parsers.seed)
+        torch.backends.cudnn.deterministic = True
+        warnings.warn('You have chosen to seed training. '
+                      'This will turn on the CUDNN deterministic setting, '
+                      'which can slow down your training considerably! '
+                      'You may see unexpected behavior when restarting '
+                      'from checkpoints.')
+    # 2.设置环境变量
+    # set environment variables for distributed training
+    configure_nccl()
+    configure_omp()
+    torch.backends.cudnn.benchmark = True
+
+    # 3.注册所有组件
+    if custom_file is not None:
+        custom_modules = json.load(open(custom_file))  # load custom modules
+    else:
+        custom_modules = None
+    logger.info("global rank-{}, local rank-{}, register all modules ......".format(comm.get_rank(), comm.get_local_rank()))
+    import_all_modules_for_register(custom_modules=custom_modules)
+
+    # 4.启动Trainer, trainer自动使用Registers中的组件
+    exp = DotMap(json.load(open(modules_file)))   # load config.json
+    status = exp['fullName'].split("-")[-2]
+    assert status in ("trainval", "eval", "demo", "export"), logger.error("This status {} is not supported, now supported trainval, eval, demo, export".format(status))
+    trainer = Registers.trainers.get(exp.trainer.type)(exp)
+    trainer.train()
 
 
 if __name__ == '__main__':
     # CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2
     # CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2
-
     main()
