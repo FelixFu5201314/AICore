@@ -41,6 +41,10 @@ def make_parser():
                         help="occupy GPU memory first for training.")   # 是否占据GPU显存
     parser.add_argument("--detail", dest="detail", default=False, action="store_true",
                         help="detail log info.")  # 是否显示详细的log信息
+    parser.add_argument("--amp", dest="amp", default=False, action="store_true",
+                        help="automatic mixed precision.")  # 是否使用混合精度
+    parser.add_argument("--ema", dest="ema", default=False, action="store_true",
+                        help="Exponential Moving Average.")  # 是否使用指数移动平均
 
     # 2.分布式
     parser.add_argument('--dist-backend', default='nccl', type=str,
@@ -201,11 +205,13 @@ def main_worker(modules_file, custom_file, parsers):
 
     # 4.启动Trainer, trainer自动使用Registers中的组件
     exp = DotMap(json.load(open(modules_file)))   # load config.json
+    # 判断status是否满足要求
     status = exp['fullName'].split("-")[-2]
     assert status in ("trainval", "eval", "demo", "export"), \
         logger.error("This status {} is not supported, now supported trainval, eval, demo, export".format(status))
+    # 初始化trainer类，并开始训练
     trainer = Registers.trainers.get(exp.trainer.type)(exp, parsers)    # exp modules组件配置字典;parsers 命令行参数
-    trainer.train()
+    trainer.run()
 
 
 if __name__ == '__main__':
