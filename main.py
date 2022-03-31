@@ -195,18 +195,19 @@ def main_worker(modules_file, custom_file, parsers):
         custom_modules = json.load(open(custom_file))  # load custom modules
     else:
         custom_modules = None
-    logger.info("global rank-{}, local rank-{}, register all modules ......".format(comm.get_rank(), comm.get_local_rank()))
+    logger.info("global rank-{}, local rank-{}, register all modules ......".format(
+        comm.get_rank(), comm.get_local_rank()))
     import_all_modules_for_register(custom_modules=custom_modules)
 
     # 4.启动Trainer, trainer自动使用Registers中的组件
     exp = DotMap(json.load(open(modules_file)))   # load config.json
     status = exp['fullName'].split("-")[-2]
-    assert status in ("trainval", "eval", "demo", "export"), logger.error("This status {} is not supported, now supported trainval, eval, demo, export".format(status))
-    trainer = Registers.trainers.get(exp.trainer.type)(exp)
+    assert status in ("trainval", "eval", "demo", "export"), \
+        logger.error("This status {} is not supported, now supported trainval, eval, demo, export".format(status))
+    trainer = Registers.trainers.get(exp.trainer.type)(exp, parsers)    # exp modules组件配置字典;parsers 命令行参数
     trainer.train()
 
 
 if __name__ == '__main__':
-    # CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2
-    # CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2
     main()
+
