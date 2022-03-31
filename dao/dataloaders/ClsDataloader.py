@@ -10,7 +10,7 @@ import torch
 import torch.multiprocessing
 from torch import distributed as dist
 
-from augments import get_transformer
+from .augments import get_transformer
 from dao.register import Registers
 
 
@@ -37,7 +37,7 @@ def ClsDataloaderTrain(is_distributed=False, batch_size=None, num_workers=None, 
     dataloader_kwargs = {"num_workers": num_workers, "pin_memory": True, "sampler": sampler, "batch_size": batch_size}
 
     dataloader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
-    return dataloader, len(dataloader)
+    return dataloader
 
 
 @Registers.dataloaders.register
@@ -63,7 +63,7 @@ def ClsDataloaderEval(is_distributed=False, batch_size=None, num_workers=None, d
     dataloader_kwargs = {"num_workers": num_workers, "pin_memory": True, "sampler": sampler, "batch_size": batch_size}
 
     dataloader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
-    return dataloader, len(dataloader)
+    return dataloader
 
 
 def get_world_size() -> int:
