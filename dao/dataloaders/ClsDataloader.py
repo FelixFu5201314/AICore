@@ -31,6 +31,7 @@ def ClsDataloaderTrain(is_distributed=False, batch_size=None, num_workers=None, 
     local_rank = get_local_rank()
 
     # 多个rank读取dataset
+    print("local rank {} start wait_for_the_master".format(get_local_rank()))
     with wait_for_the_master(local_rank):
         train_dataset = Registers.datasets.get(dataset.type)(
             preproc=get_transformer(dataset.transforms.kwargs), **dataset.kwargs)
