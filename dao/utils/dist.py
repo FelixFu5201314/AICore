@@ -33,6 +33,7 @@ __all__ = [
     "time_synchronized",
     "gather",
     "all_gather",
+    "find_free_port"
 ]
 
 _LOCAL_PROCESS_GROUP = None
