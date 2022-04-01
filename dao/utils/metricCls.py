@@ -110,15 +110,18 @@ class MeterClsEval(object):
         self.lr = 0     # 学习率
 
     def update(self, data_time=None, batch_time=None, total_loss=None, outputs=None, targets=None, lr=None):
-        self.batch_time.update(batch_time) if batch_time is not None else logger.info("batch time None")
-        self.data_time.update(data_time) if data_time is not None else logger.info("data time None")
-        self.total_loss.update(total_loss) if total_loss is not None else logger.info("total_loss time None")
-        self.lr = lr if lr is not None else None
-
+        if batch_time is not None:
+            self.batch_time.update(batch_time)
+        if data_time is not None:
+            self.data_time.update(data_time)
+        if total_loss is not None:
+            self.total_loss.update(total_loss)
         if outputs is not None and targets is not None:
             top1, top2 = self._eval_topk(outputs, targets, topk=(1, 2))
             self.precision_top1.update(top1.item())
             self.precision_top2.update(top2.item())
+        if lr is not None:
+            self.lr = lr
 
     def _eval_topk(self, output, target, topk=(1,)):
         """Computes the accuracy over the k top predictions for the specified values of k"""
