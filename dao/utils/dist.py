@@ -77,14 +77,18 @@ def wait_for_the_master(local_rank: int):
     所有进程等待rank0完成一些事情后，再运行。事情是wait_for_the_master装饰的函数。
     """
     if local_rank > 0:
+        print("wait_for_the_master, local_rank {} wait".format(local_rank))
         dist.barrier()
     yield
     if local_rank == 0:
         if not dist.is_available():
+            print("local_rank 0 dist.is_available() is False")
             return
         if not dist.is_initialized():
+            print("local_rank 0 dist.is_initialized() is False")
             return
         else:
+            print("wait_for_the_master, local_rank 0 init dataset finished")
             dist.barrier()
 
 
