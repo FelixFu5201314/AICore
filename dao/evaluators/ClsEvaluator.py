@@ -35,7 +35,6 @@ class ClsEvaluator:
                  dataloader=None,
                  num_classes=None,
                  is_industry=False,
-                 industry=None,
                  target_layer="conv_head"):
         """
         验证器
@@ -56,7 +55,6 @@ class ClsEvaluator:
         self.meter = MeterClsEval(num_classes)
         self.num_class = num_classes
         self.is_industry = is_industry
-        # self.industry = industry
         self.target_layer = target_layer
 
         # 获取labels字典
@@ -107,9 +105,7 @@ class ClsEvaluator:
                                    label=targets,
                                    output_dir=output_dir,
                                    img_p=paths[0],
-                                   cam_extractor=cam_extractor,
-                                   ng_worksheet=ng_worksheet,
-                                   ok_worksheet=ok_worksheet)
+                                   cam_extractor=cam_extractor)
                 data_list.append((outputs, targets, paths))
 
         # 根据是否是分布式，将结果分别存储到output_s,target_s,path_s中

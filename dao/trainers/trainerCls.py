@@ -369,8 +369,8 @@ class ClsEval:
             self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name)    # 日志目录
             if os.path.exists(self.output_dir):  # 如果存在self.output_dir删除
                 shutil.rmtree(self.output_dir)
-        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"val_log.txt",
-                     mode="a")  # 设置只有rank=0输出日志，并重定向
+        setup_logger(self.output_dir, distributed_rank=0, filename=f"val_log.txt",
+                     mode="a")  # 设置只有rank=0输出日志，并重定向，单卡模式
         logger.info("....... Eval Before, Setting something ...... ")
         logger.info("1. Logging Setting ...")
         logger.info(f"create log file {self.output_dir}/eval_log.txt")  # log txt
@@ -379,7 +379,7 @@ class ClsEval:
             json.dump(dict(self.exp), f)
 
         logger.info("2. Model Setting ...")
-        torch.cuda.set_device(get_local_rank())
+        torch.cuda.set_device(self.parser.gpu)
         model = Registers.cls_models.get(self.exp.model.type)(self.exp.model.backbone, **self.exp.model.kwargs)
         logger.info("\n{}".format(model)) if self.parser.detail else None  # log model structure
         summary(model, input_size=(224, 224), device="cpu") if self.parser.detail else None  # log torchsummary model
