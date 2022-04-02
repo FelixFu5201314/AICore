@@ -354,7 +354,7 @@ class ClsEval:
 
     def run(self):
         self._before_eval()
-        self.evaluator.evaluate(self.model, get_world_size() > 1, device="cuda:{}".format(get_local_rank()),
+        self.evaluator.evaluate(self.model, get_world_size() > 1, device="cuda:{}".format(self.parser.gpu),
                                 output_dir=self.output_dir)
 
     def _before_eval(self):
@@ -383,10 +383,10 @@ class ClsEval:
         model = Registers.cls_models.get(self.exp.model.type)(self.exp.model.backbone, **self.exp.model.kwargs)
         logger.info("\n{}".format(model)) if self.parser.detail else None  # log model structure
         summary(model, input_size=(224, 224), device="cpu") if self.parser.detail else None  # log torchsummary model
-        model.to("cuda:{}".format(get_local_rank()))  # model to self.device
+        model.to("cuda:{}".format(self.parser.gpu))  # model to self.device
 
         ckpt_file = self.exp.trainer.ckpt
-        ckpt = torch.load(ckpt_file, map_location="cuda:{}".format(get_local_rank()))["model"]
+        ckpt = torch.load(ckpt_file, map_location="cuda:{}".format(self.parser.gpu))["model"]
         self.model = load_ckpt(model, ckpt)
         self.model.eval()
 
@@ -507,42 +507,56 @@ class ClsDemo:
 
 @Registers.trainers.register
 class ClsExport:
-    def __init__(self, exp):
+    def __init__(self, exp, parser):
         self.exp = exp  # DotMap 格式 的配置文件
+        self.parser = parser  # 命令行配置文件
+
         self.start_time = datetime.datetime.now().strftime('%m-%d_%H-%M')  # 此次trainer的开始时间
 
-    @logger.catch
-    def export(self):
+        # 因为ClsExport只支持单机单卡
+        assert self.parser.devices == 1, "devices must 1, please set again "
+        assert self.parser.num_machines == 1, "num_machines must 1, please set again "
+        assert self.parser.machine_rank == 0, "machine_rank must 0, please set again "
+
+    def run(self):
         self._before_export()
 
         x = torch.randn(self.exp.onnx.x_size)
-        onnx_path = self.exp.onnx.onnx_path if self.exp.onnx.onnx_path else os.path.join(self.output_dir, self.exp.name+".onnx")
+        onnx_path = os.path.join(self.output_dir, self.exp.name+".onnx")
         torch.onnx.export(self.model,
                           x,
                           onnx_path,
                           **self.exp.onnx.kwargs)
-        return 0, self.output_dir
 
     def _before_export(self):
         """
         1.Logger Setting
         2.Model Setting;
         """
-        self.output_dir = os.path.join(self.exp.trainer.log.log_dir, self.exp.name, self.start_time)
-        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"export_log.txt", mode="a")
-        logger.info("....... Train Before, Setting something ...... ")
+        if self.parser.record:
+            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)  # 日志目录
+        else:
+            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name)  # 日志目录
+            if os.path.exists(self.output_dir):  # 如果存在self.output_dir删除
+                shutil.rmtree(self.output_dir)
+        setup_logger(self.output_dir, distributed_rank=0, filename=f"export_log.txt",
+                     mode="a")  # 设置只有rank=0输出日志，并重定向
+        logger.info("....... Export Before, Setting something ...... ")
         logger.info("1. Logging Setting ...")
         logger.info(f"create log file {self.output_dir}/export_log.txt")  # log txt
-        logger.info("exp value:\n{}".format(self.exp))
+        self.exp.pprint(pformat='json') if self.parser.detail else None  # 根据parser.detail来决定日志输出的详细
+        with open(os.path.join(self.output_dir, 'config.json'), 'w') as f:  # 将配置文件写到self.output_dir
+            json.dump(dict(self.exp), f)
 
         logger.info("2. Model Setting ...")
-        logger.info("model setting, on cpu")
-        model = Registers.cls_models.get(self.exp.model.type)(
-            self.exp.model.backbone,
-            **self.exp.model.kwargs)  # get model from register
-        logger.info("\n{}".format(model))  # log model structure
-        summary(model, input_size=tuple(self.exp.model.summary_size),
-                device="{}".format(next(model.parameters()).device))  # log torchsummary model
-        ckpt = torch.load(self.exp.trainer.ckpt, map_location="cpu")["model"]
+        logger.info("load model on cpu")
+        model = Registers.cls_models.get(self.exp.model.type)(self.exp.model.backbone, **self.exp.model.kwargs)
+        logger.info("\n{}".format(model)) if self.parser.detail else None  # log model structure
+        summary(model, input_size=(224, 224), device="cpu") if self.parser.detail else None  # log torchsummary model
+
+        ckpt_file = self.exp.trainer.ckpt
+        ckpt = torch.load(ckpt_file, map_location="cpu")["model"]
         self.model = load_ckpt(model, ckpt)
         self.model.eval()
+
+        logger.info("Setting finished, export onnx start ......")
