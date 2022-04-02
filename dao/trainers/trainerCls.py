@@ -401,82 +401,108 @@ class ClsEval:
 
 @Registers.trainers.register
 class ClsDemo:
-    def __init__(self, exp):
+    def __init__(self, exp, parser):
         self.exp = exp  # DotMap 格式 的配置文件
+        self.parser = parser  # 命令行配置文件
+
         self.start_time = datetime.datetime.now().strftime('%m-%d_%H-%M')  # 此次trainer的开始时间
 
-    def _before_demo(self):
-        """
-        1.Logger Setting
-        2.Model Setting;
-        """
-        self.output_dir = os.path.join(self.exp.trainer.log.log_dir, self.exp.name, self.start_time)
-        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"demo_log.txt", mode="a")
-        logger.info("....... Train Before, Setting something ...... ")
-        logger.info("1. Logging Setting ...")
-        logger.info(f"create log file {self.output_dir}/demo_log.txt")  # log txt
-        logger.info("exp value:\n{}".format(self.exp))
+        # 因为ClsDemo只支持单机单卡，且batchsize为1
+        if self.exp.evaluator.kwargs.is_industry:
+            assert self.parser.devices == 1, "exp.envs.gpus.devices must 1, please set again "
+            assert self.parser.num_machines == 1, "exp.envs.gpus.devices must 1, please set again "
+            assert self.parser.machine_rank == 0, "exp.envs.gpus.devices must 0, please set again "
+            assert exp.evaluator.dataloader.kwargs.batch_size == 1, "exp.envs.gpus.devices must 1, please set again "
 
-        logger.info("2. Model Setting ...")
-        logger.info("model setting, on cpu")
-        model = Registers.cls_models.get(self.exp.model.type)(
-            self.exp.model.backbone,
-            **self.exp.model.kwargs)  # get model from register
-        logger.info("\n{}".format(model))  # log model structure
-        summary(model, input_size=tuple(self.exp.model.summary_size),
-                device="{}".format(next(model.parameters()).device))  # log torchsummary model
-        ckpt = torch.load(self.exp.trainer.ckpt, map_location="cpu")["model"]
-        self.model = load_ckpt(model, ckpt)
-        self.model.eval()
-
-    def _img_ok(self, img_p):
-        flag = False
-        for m in self.exp.images.image_ext:
-            if img_p.endswith(m):
-                flag = True
-        return flag
-
-    def _get_images(self):
-        results = []
-        all_paths = []
-
-        if self.exp.images.type == "image":
-            all_paths.append(self.exp.images.path)
-        elif self.exp.images.type == "images":
-            all_p = [p for p in os.listdir(self.exp.images.path) if self._img_ok(p)]
-            for p in all_p:
-                all_paths.append(os.path.join(self.exp.images.path, p))
-
-        for img_p in all_paths:
-            image = np.array(Image.open(img_p))  # h,w
-            if len(image.shape) == 2:
-                image = np.expand_dims(image, axis=2)  # h,w,1
-            transform = get_transformer(self.exp.images.transforms.kwargs)
-            image = transform(image=image)['image']
-            image = image.transpose(2, 0, 1)  # c, h, w
-            results.append((img_p, image))
-        return results
-
-    def demo(self):
+    def run(self):
         self._before_demo()
-        self.images = self._get_images()  # ndarray
+        images = self._get_images()  # ndarray
         results = []
-        for img_p, image in self.images:
+        for img_p, image in images:
             image = torch.tensor(image).unsqueeze(0)  # 1, c, h, w
+            image = image.type(torch.cuda.FloatTensor)  # cpu-->GPU
             output = self.model(image)
             top1_id = output.squeeze().cpu().detach().numpy().argmax()
             top1_scores = np.exp(output.cpu().detach().numpy().squeeze().max()) / sum(
                                                                np.exp(output.cpu().detach().numpy().squeeze()))
             logger.info("Image:{}\n pred:{}, and scores:{:4f}".format(img_p, top1_id, top1_scores))
             results.append((img_p, top1_id, top1_scores))
-        logger.info("输出结果到{}文件中".format(os.path.join(self.output_dir, "result.txt")))
+
+        # 将推理结果写到result.txt中
+        logger.info("write result to {}".format(os.path.join(self.output_dir, "result.txt")))
         with open(os.path.join(self.output_dir, "result.txt"), 'w', encoding='utf-8') as result_file:
             for temp in results:
                 img_p = temp[0]
                 top1_id = temp[1]
                 top1_scores = temp[2]
                 result_file.write("Image:{} pred:{} scores:{:4f}\n".format(img_p, top1_id, top1_scores))
-        return 0, self.output_dir
+
+    def _before_demo(self):
+        """
+        1.Logger Setting
+        2.Model Setting;
+        """
+        if self.parser.record:
+            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)  # 日志目录
+        else:
+            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name)  # 日志目录
+            if os.path.exists(self.output_dir):  # 如果存在self.output_dir删除
+                shutil.rmtree(self.output_dir)
+        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"val_log.txt",
+                     mode="a")  # 设置只有rank=0输出日志，并重定向
+        logger.info("....... Demo Before, Setting something ...... ")
+        logger.info("1. Logging Setting ...")
+        logger.info(f"create log file {self.output_dir}/demo_log.txt")  # log txt
+        self.exp.pprint(pformat='json') if self.parser.detail else None  # 根据parser.detail来决定日志输出的详细
+        with open(os.path.join(self.output_dir, 'config.json'), 'w') as f:  # 将配置文件写到self.output_dir
+            json.dump(dict(self.exp), f)
+
+        logger.info("2. Model Setting ...")
+        torch.cuda.set_device(get_local_rank())
+        model = Registers.cls_models.get(self.exp.model.type)(self.exp.model.backbone, **self.exp.model.kwargs)
+        logger.info("\n{}".format(model)) if self.parser.detail else None  # log model structure
+        summary(model, input_size=(224, 224), device="cpu") if self.parser.detail else None  # log torchsummary model
+        model.to("cuda:{}".format(get_local_rank()))  # model to self.device
+
+        ckpt_file = self.exp.trainer.ckpt
+        ckpt = torch.load(ckpt_file, map_location="cuda:{}".format(get_local_rank()))["model"]
+        self.model = load_ckpt(model, ckpt)
+        self.model.eval()
+
+        logger.info("Setting finished, demo start ......")
+
+    def _img_ok(self, img_p):
+        flag = False
+        for m in self.exp.images.image_ext:     # 此文件是否是[".jpg", ".jpeg", ".bmp", ".png"]之一
+            if img_p.endswith(m):
+                flag = True
+        return flag
+
+    def _get_images(self):
+        # 1.获得所有图片路径
+        all_p = [p for p in os.listdir(os.path.join(self.exp.trainer.log_dir, "temp")) if self._img_ok(p)]  # 获得图名
+        all_paths = []
+        for p in all_p:  # 获得所有图片的绝对路径
+            all_paths.append(os.path.join(self.exp.trainer.log_dir, "temp", p))
+
+        # 2. 通过路径得到所有图片,绝对路径
+        results = []
+        picPath = os.path.join(self.output_dir, "pictures")
+        os.makedirs(picPath, exist_ok=True)
+        for img_p in all_paths:
+            # 将temp中的图片拷贝到self.output_dir的pictures中
+            dstPic = os.path.join(picPath, img_p.split('/')[-1])
+            shutil.copy(img_p, dstPic)
+
+            # 读取图片，并存入results中
+            image = np.array(Image.open(dstPic))  # h,w
+            if len(image.shape) == 2:   # 如果是单通道
+                image = np.expand_dims(image, axis=2)  # h,w,1
+            transform = get_transformer(self.exp.images.transforms.kwargs)  # 增强
+            image = transform(image=image)['image']
+            image = image.transpose(2, 0, 1)  # c, h, w
+            results.append((dstPic, image))
+        return results
 
 
 @Registers.trainers.register
