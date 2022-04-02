@@ -14,13 +14,15 @@ vim /etc/ssh/sshd_config
 ln -s /ai/data/AITorch/hub/ /root/.cache/torch/
 ln -s /opt/conda/bin/python /usr/bin/python
 ln -s /opt/conda/bin/pip /usr/bin/pip
-pip install python-socketio eventlet nvgpu  # AIServer
+pip install python-socketio eventlet nvgpu xlsxwriter # AIServer
 pip install dotmap loguru albumentations torchcam timm torchsummary     # AICore
 ```
 ## 2. 如何部署
 
 ## 3. 如何启动
 ```
+一、 分类
+1. trainval
 # 单机单卡
 CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
 
@@ -36,4 +38,6 @@ CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=I
 CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
 CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
 
+2. eval
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-ClsDataloader-ClsEvaluator-eval-linux.json
 ```
