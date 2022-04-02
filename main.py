@@ -59,6 +59,8 @@ def make_parser():
                         help="node rank for multi-node training")  # 主机rank
     parser.add_argument('--devices', default=None, type=int,
                         help='devices GPU number to use.')  # 每台机器GPU数量, 多台机器此参数需一致
+    parser.add_argument('--gpu', default=1, type=int,
+                        help='GPU id to use.')  # 当运行单机单卡时，指定gpu id执行程序
 
     # 3.Modules-组件
     parser.add_argument("-c", "--exp_file", default=None, type=str,

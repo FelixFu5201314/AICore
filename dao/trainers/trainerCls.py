@@ -407,20 +407,19 @@ class ClsDemo:
 
         self.start_time = datetime.datetime.now().strftime('%m-%d_%H-%M')  # 此次trainer的开始时间
 
-        # 因为ClsDemo只支持单机单卡，且batchsize为1
-        if self.exp.evaluator.kwargs.is_industry:
-            assert self.parser.devices == 1, "exp.envs.gpus.devices must 1, please set again "
-            assert self.parser.num_machines == 1, "exp.envs.gpus.devices must 1, please set again "
-            assert self.parser.machine_rank == 0, "exp.envs.gpus.devices must 0, please set again "
-            assert exp.evaluator.dataloader.kwargs.batch_size == 1, "exp.envs.gpus.devices must 1, please set again "
+        # 因为ClsDemo只支持单机单卡
+        assert self.parser.devices == 1, "exp.envs.gpus.devices must 1, please set again "
+        assert self.parser.num_machines == 1, "exp.envs.gpus.devices must 1, please set again "
+        assert self.parser.machine_rank == 0, "exp.envs.gpus.devices must 0, please set again "
 
     def run(self):
         self._before_demo()
-        images = self._get_images()  # ndarray
+        images = self._get_images()  # ndarray, cpu
         results = []
         for img_p, image in images:
             image = torch.tensor(image).unsqueeze(0)  # 1, c, h, w
-            image = image.type(torch.cuda.FloatTensor)  # cpu-->GPU
+            image = image.type(torch.cuda.FloatTensor)
+            image.to(device="cuda:{}".format(self.parser.gpu))  # cpu-->GPU
             output = self.model(image)
             top1_id = output.squeeze().cpu().detach().numpy().argmax()
             top1_scores = np.exp(output.cpu().detach().numpy().squeeze().max()) / sum(
@@ -448,8 +447,7 @@ class ClsDemo:
             self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name)  # 日志目录
             if os.path.exists(self.output_dir):  # 如果存在self.output_dir删除
                 shutil.rmtree(self.output_dir)
-        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"val_log.txt",
-                     mode="a")  # 设置只有rank=0输出日志，并重定向
+        setup_logger(self.output_dir, distributed_rank=0, filename=f"demo_log.txt", mode="a")  # 输出日志重定向
         logger.info("....... Demo Before, Setting something ...... ")
         logger.info("1. Logging Setting ...")
         logger.info(f"create log file {self.output_dir}/demo_log.txt")  # log txt
@@ -458,14 +456,14 @@ class ClsDemo:
             json.dump(dict(self.exp), f)
 
         logger.info("2. Model Setting ...")
-        torch.cuda.set_device(get_local_rank())
+        torch.cuda.set_device(self.parser.gpu)
         model = Registers.cls_models.get(self.exp.model.type)(self.exp.model.backbone, **self.exp.model.kwargs)
         logger.info("\n{}".format(model)) if self.parser.detail else None  # log model structure
         summary(model, input_size=(224, 224), device="cpu") if self.parser.detail else None  # log torchsummary model
-        model.to("cuda:{}".format(get_local_rank()))  # model to self.device
+        model.to("cuda:{}".format(self.parser.gpu))  # model to self.device
 
         ckpt_file = self.exp.trainer.ckpt
-        ckpt = torch.load(ckpt_file, map_location="cuda:{}".format(get_local_rank()))["model"]
+        ckpt = torch.load(ckpt_file, map_location="cuda:{}".format(self.parser.gpu))["model"]
         self.model = load_ckpt(model, ckpt)
         self.model.eval()
 
