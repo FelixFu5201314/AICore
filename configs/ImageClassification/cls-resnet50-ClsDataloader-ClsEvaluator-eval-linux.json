@@ -1,0 +1,57 @@
+{
+    "name": "eval",
+    "type": "cls",
+    "fullName": "cls-resnet50-ClsDataloader-ClsEvaluator-eval-linux",
+
+    "trainer": {
+        "type": "ClsEval",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/ImageClassification/resnet50/test",
+        "ckpt": "/ai/data/test_weight/resnet50.pth"
+    },
+    "model": {
+        "type": "TIMMC",
+        "backbone": {
+            "kwargs": {
+                "model_name":"resnet50",
+                "pretrained": true,
+                "checkpoint_path": "",
+                "exportable": true,
+                "in_chans": 1,
+                "num_classes": 5
+            }
+        },
+        "kwargs": {
+        }
+    },
+    "evaluator": {
+        "type": "ClsEvaluator",
+        "dataloader": {
+            "type": "ClsDataloaderEval",
+            "dataset": {
+                "type": "ClsDataset",
+                "kwargs": {
+                    "data_dir": "/ai/data/AIDatasets/ImageClassification/4AR6N-L546S-DQSM9-424ZM-N4DZ2/PZ",
+                    "image_set": "val.txt",
+                    "in_channels": 1,
+                    "input_size": [512, 512],
+                    "cache": false,
+                    "images_suffix": [".bmp"]
+                },
+                "transforms": {
+                    "kwargs": {
+                        "Normalize": {"mean": 0, "std": 1, "p": 1}
+                    }
+                }
+            },
+            "kwargs": {
+                "num_workers": 4,
+                "batch_size": 1
+            }
+        },
+        "kwargs": {
+            "num_classes": 5,
+            "is_industry": true,
+            "target_layer": "layer4"
+        }
+    }
+}
