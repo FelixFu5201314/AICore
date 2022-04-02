@@ -76,9 +76,13 @@ class ClsTrainer:
         if self.parser.record:
             self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)    # 日志目录
         else:
-            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name)    # 日志目录
-            if os.path.exists(self.output_dir):  # 如果存在self.output_dir删除
-                shutil.rmtree(self.output_dir)
+            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name)  # 日志目录
+            if get_rank() == 0:
+                if os.path.exists(self.output_dir):  # 如果存在self.output_dir删除
+                    try:
+                        shutil.rmtree(self.output_dir)
+                    except Exception as e:
+                        logger.info("global rank {} can't remove tree {}".format(get_rank(), self.output_dir))
         setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"train_log.txt", mode="a")  # 设置只有rank=0输出日志，并重定向
         logger.info("....... Train Before, Setting something ...... ")
         logger.info("1. Logging Setting ...")
