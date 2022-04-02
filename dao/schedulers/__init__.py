@@ -4,3 +4,4 @@
 # @GitHub:https://github.com/felixfu520
 # @Copy From:
 from .warm_cos_lr import warm_cos_lr
+from .multistep_lr import multistep_lr
