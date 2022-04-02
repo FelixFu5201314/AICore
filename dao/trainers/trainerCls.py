@@ -360,6 +360,7 @@ class ClsEval:
         self._before_eval()
         self.evaluator.evaluate(self.model, get_world_size() > 1, device="cuda:{}".format(self.parser.gpu),
                                 output_dir=self.output_dir)
+        logger.info("DONE")
 
     def _before_eval(self):
         """
@@ -439,6 +440,7 @@ class ClsDemo:
                 top1_id = temp[1]
                 top1_scores = temp[2]
                 result_file.write("Image:{} pred:{} scores:{:4f}\n".format(img_p, top1_id, top1_scores))
+        logger.info("DONE")
 
     def _before_demo(self):
         """
@@ -529,6 +531,7 @@ class ClsExport:
                           x,
                           onnx_path,
                           **self.exp.onnx.kwargs)
+        logger.info("DONE")
 
     def _before_export(self):
         """
