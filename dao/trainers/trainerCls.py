@@ -10,6 +10,7 @@ import os   # 导入系统相关库
 import time
 import json
 import datetime
+import shutil
 import numpy as np
 from PIL import Image
 from loguru import logger
@@ -72,7 +73,12 @@ class ClsTrainer:
         7.Scheduler Setting;
         8.Evaluator Setting;
         """
-        self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)    # 日志目录
+        if self.parser.record:
+            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)    # 日志目录
+        else:
+            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name)    # 日志目录
+            if os.path.exists(self.output_dir):  # 如果存在self.output_dir删除
+                shutil.rmtree(self.output_dir)
         setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"train_log.txt", mode="a")  # 设置只有rank=0输出日志，并重定向
         logger.info("....... Train Before, Setting something ...... ")
         logger.info("1. Logging Setting ...")
@@ -257,15 +263,17 @@ class ClsTrainer:
                                                                device="cuda:{}".format(get_local_rank()),
                                                                output_dir=self.output_dir)
         self.model.train()
+        # 将evaluator结果写到tensorboard中
         if get_rank() == 0 and top1 > self.best_acc:
             self.tblogger.add_scalar("val/top1", top1, self.epoch + 1)
             self.tblogger.add_scalar("val/top2", top2, self.epoch + 1)
-            label_txt = os.path.join(self.exp.evaluator.dataloader.dataset.kwargs.data_dir,
-                                     "labels.txt")
-            class_names = []
-            with open(label_txt, "r") as labels_file:
-                for label in labels_file.readlines():
-                    class_names.append(label.strip().split()[0])
+            # 获得类别名称
+            # label_txt = os.path.join(self.exp.evaluator.dataloader.dataset.kwargs.data_dir, "labels.txt")
+            # class_names = []
+            # with open(label_txt, "r") as labels_file:
+            #     for label in labels_file.readlines():
+            #         class_names.append(label.strip().split()[0])
+            class_names = self.evaluator.class_names
             self.tblogger.add_figure('val/confusion matrix',
                                      figure=plot_confusion_matrix(confusion_matrix,
                                                                   classes=class_names,
@@ -273,7 +281,7 @@ class ClsTrainer:
                                                                   title='Normalized confusion matrix'),
                                      global_step=self.epoch + 1)
 
-            logger.info("\n-----Val {}-----\ntop1:{}, top2:{}".format(self.epoch + 1, top1, top2))
+            logger.info("Best ACC - epoch:{}, top1:{}, top2:{}".format(self.epoch + 1, top1, top2))
         synchronize()
         self._save_ckpt("last_epoch", top1 > self.best_acc)
         self.best_acc = max(self.best_acc, top1)
@@ -331,21 +339,23 @@ class ClsTrainer:
 
 @Registers.trainers.register
 class ClsEval:
-    def __init__(self, exp):
+    def __init__(self, exp, parser):
         self.exp = exp  # DotMap 格式 的配置文件
-        self.start_time = datetime.datetime.now().strftime('%m-%d_%H-%M')   # 此次trainer的开始时间
+        self.parser = parser  # 命令行配置文件
+
+        self.start_time = datetime.datetime.now().strftime('%m-%d_%H-%M')  # 此次trainer的开始时间
 
         # 因为ClsEval只支持单机单卡，且batchsize为1
-        if exp.evaluator.kwargs.is_industry:
-            assert exp.envs.gpus.devices == 1, "exp.envs.gpus.devices must 1, please set again "
-            assert exp.envs.gpus.num_machines == 1, "exp.envs.gpus.devices must 1, please set again "
-            assert exp.envs.gpus.machine_rank == 0, "exp.envs.gpus.devices must 0, please set again "
-            assert exp.evaluator.dataloader.kwargs.batch_size == 1, "exp.envs.gpus.devices must 1, please set again "
+        if self.exp.evaluator.kwargs.is_industry:
+            assert self.parser.devices == 1, "exp.envs.gpus.devices must 1, please set again "
+            assert self.parser.num_machines == 1, "exp.envs.gpus.devices must 1, please set again "
+            assert self.parser.machine_rank == 0, "exp.envs.gpus.devices must 0, please set again "
+            # assert exp.evaluator.dataloader.kwargs.batch_size == 1, "exp.envs.gpus.devices must 1, please set again "
 
-    def eval(self):
+    def run(self):
         self._before_eval()
-        self.evaluator.evaluate(self.model, get_world_size() > 1, device="cuda:{}".format(get_local_rank()), output_dir=self.output_dir)
-        return 0, self.output_dir
+        self.evaluator.evaluate(self.model, get_world_size() > 1, device="cuda:{}".format(get_local_rank()),
+                                output_dir=self.output_dir)
 
     def _before_eval(self):
         """
@@ -353,30 +363,31 @@ class ClsEval:
         2.Model Setting;
         3.Evaluator Setting;
         """
-        self.output_dir = os.path.join(self.exp.trainer.log.log_dir, self.exp.name, self.start_time)
-        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"val_log.txt", mode="a")
-        logger.info("....... Train Before, Setting something ...... ")
+        if self.parser:
+            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)  # 日志目录
+        else:
+            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name)    # 日志目录
+            if os.path.exists(self.output_dir):  # 如果存在self.output_dir删除
+                shutil.rmtree(self.output_dir)
+        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"train_log.txt",
+                     mode="a")  # 设置只有rank=0输出日志，并重定向
+        logger.info("....... Eval Before, Setting something ...... ")
         logger.info("1. Logging Setting ...")
         logger.info(f"create log file {self.output_dir}/eval_log.txt")  # log txt
-        logger.info("exp value:\n{}".format(self.exp))
-        logger.info(f"create Tensorboard logger {self.output_dir}")
+        self.exp.pprint(pformat='json') if self.parser.detail else None  # 根据parser.detail来决定日志输出的详细
+        with open(os.path.join(self.output_dir, 'config.json'), 'w') as f:  # 将配置文件写到self.output_dir
+            json.dump(dict(self.exp), f)
 
         logger.info("2. Model Setting ...")
         torch.cuda.set_device(get_local_rank())
-        model = Registers.cls_models.get(self.exp.model.type)(self.exp.model.backbone, **self.exp.model.kwargs)  # get model from register
-        logger.info("\n{}".format(model))  # log model structure
-        summary(model, input_size=tuple(self.exp.model.summary_size),   device="{}".format(next(model.parameters()).device))  # log torchsummary model
+        model = Registers.cls_models.get(self.exp.model.type)(self.exp.model.backbone, **self.exp.model.kwargs)
+        logger.info("\n{}".format(model)) if self.parser.detail else None  # log model structure
+        summary(model, input_size=(224, 224), device="cpu") if self.parser.detail else None  # log torchsummary model
         model.to("cuda:{}".format(get_local_rank()))  # model to self.device
 
         ckpt_file = self.exp.trainer.ckpt
         ckpt = torch.load(ckpt_file, map_location="cuda:{}".format(get_local_rank()))["model"]
-        model = load_ckpt(model, ckpt)
-
-        logger.info("Model DDP Setting")
-        if get_world_size() > 1:
-            model = DDP(model, device_ids=[get_local_rank()], broadcast_buffers=False, output_device=[get_local_rank()])
-
-        self.model = model
+        self.model = load_ckpt(model, ckpt)
         self.model.eval()
 
         logger.info("3. Evaluator Setting ... ")
@@ -385,7 +396,7 @@ class ClsEval:
             dataloader=self.exp.evaluator.dataloader,
             **self.exp.evaluator.kwargs
         )
-        logger.info("Now Eval Start ......")
+        logger.info("Setting finished, eval start ......")
 
 
 @Registers.trainers.register
