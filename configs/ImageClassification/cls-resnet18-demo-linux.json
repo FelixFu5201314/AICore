@@ -1,0 +1,36 @@
+{
+    "name": "demo",
+    "type": "cls",
+    "fullName": "cls-resnet18-demo-linux",
+
+    "trainer": {
+        "type": "ClsDemo",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/ImageClassification/resnet18/test",
+        "ckpt": "/ai/data/test_weight/resnet18.pth"
+    },
+    "model": {
+        "type": "TIMMC",
+        "backbone": {
+            "kwargs": {
+                "model_name":"resnet18",
+                "pretrained": true,
+                "checkpoint_path": "",
+                "exportable": true,
+                "in_chans": 1,
+                "num_classes": 5
+            }
+        },
+        "kwargs": {
+        }
+    },
+    "images": {
+        "type": "images",
+        "image_ext": [".jpg", ".jpeg", ".bmp", ".png"],
+        "transforms": {
+            "kwargs": {
+                "Resize":{"p": 1, "height":512, "width":512},
+                "Normalize": {"mean": 0, "std": 1, "p": 1}
+            }
+        }
+    }
+}
