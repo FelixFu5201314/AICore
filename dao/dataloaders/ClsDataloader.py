@@ -77,9 +77,9 @@ def ClsDataloaderEval(is_distributed=False, batch_size=None, num_workers=None, d
     )
     if is_distributed:
         batch_size = batch_size // get_world_size()
-        sampler = torch.utils.data.distributed.DistributedSampler(dataset, shuffle=False)
+        sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False)
     else:
-        sampler = torch.utils.data.SequentialSampler(dataset)
+        sampler = torch.utils.data.SequentialSampler(val_dataset)
 
     dataloader_kwargs = {"num_workers": num_workers, "pin_memory": True, "sampler": sampler, "batch_size": batch_size}
 
