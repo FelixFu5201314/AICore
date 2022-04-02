@@ -350,7 +350,7 @@ class ClsEval:
             assert self.parser.devices == 1, "exp.envs.gpus.devices must 1, please set again "
             assert self.parser.num_machines == 1, "exp.envs.gpus.devices must 1, please set again "
             assert self.parser.machine_rank == 0, "exp.envs.gpus.devices must 0, please set again "
-            # assert exp.evaluator.dataloader.kwargs.batch_size == 1, "exp.envs.gpus.devices must 1, please set again "
+            assert exp.evaluator.dataloader.kwargs.batch_size == 1, "exp.envs.gpus.devices must 1, please set again "
 
     def run(self):
         self._before_eval()
@@ -363,13 +363,13 @@ class ClsEval:
         2.Model Setting;
         3.Evaluator Setting;
         """
-        if self.parser:
+        if self.parser.record:
             self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)  # 日志目录
         else:
             self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name)    # 日志目录
             if os.path.exists(self.output_dir):  # 如果存在self.output_dir删除
                 shutil.rmtree(self.output_dir)
-        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"train_log.txt",
+        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"val_log.txt",
                      mode="a")  # 设置只有rank=0输出日志，并重定向
         logger.info("....... Eval Before, Setting something ...... ")
         logger.info("1. Logging Setting ...")
