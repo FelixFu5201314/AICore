@@ -83,7 +83,8 @@ class ClsEvaluator:
         if half:
             model = model.half()
         data_list = []  # 存放最终的结果，多个gpu上汇集来的结果
-        progress_bar = tqdm if is_main_process() else iter
+        # progress_bar = tqdm if is_main_process() else iter
+        progress_bar = iter
 
         # for industry
         cam_extractor = CAM(model, target_layer=self.target_layer) if self.is_industry else None    # 热力图
