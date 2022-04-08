@@ -57,9 +57,9 @@ def make_parser():
                         help="num of node for training")  # 主机数
     parser.add_argument("--machine_rank", default=0, type=int,
                         help="node rank for multi-node training")  # 主机rank
-    parser.add_argument('--devices', default=None, type=int,
+    parser.add_argument('--devices', default=1, type=int,
                         help='devices GPU number to use.')  # 每台机器GPU数量, 多台机器此参数需一致
-    parser.add_argument('--gpu', default=1, type=int,
+    parser.add_argument('--gpu', default=0, type=int,
                         help='GPU id to use.')  # 当运行单机单卡时，指定gpu id执行程序
 
     # 3.Modules-组件
@@ -81,6 +81,8 @@ def main():
     assert num_gpus_per_machine <= comm.get_num_devices()
     world_size = num_machines * num_gpus_per_machine  # 3. world size 等于机器数 * 每台机器的GPU数
     if world_size > 1:  # 分布式
+        logger.info("Single/Multi Machine, Multi GPU")
+
         # https://github.com/pytorch/pytorch/pull/14391
         # TODO prctl in spawned processes
 
@@ -101,6 +103,7 @@ def main():
                 "As Windows platform doesn't support fork method, "
                 "do not add --cache in your training command."
             )
+            logger.info("start Method is Fork")
             start_method = "fork"
 
         # 启动多进程训练
@@ -123,6 +126,7 @@ def main():
         )
     else:   # 单卡
         # Simply call main_worker function
+        logger.info("Single Machine, Single GPU")
         main_worker(parsers.exp_file, parsers.cus_file, parsers)
 
 
