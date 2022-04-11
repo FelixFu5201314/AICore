@@ -9,3 +9,6 @@ from .backbone import TIMM
 
 # 2. ImageClassification
 from .ImageClassification import TIMMC
+
+# 3. AnomalyDetection
+from .anomaly import PaDiM
