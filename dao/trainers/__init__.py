@@ -5,3 +5,5 @@
 # @Copy From:
 # 分类
 from .trainerCls import ClsTrainer, ClsEval, ClsDemo, ClsExport
+# 异常检测
+from .trainerAnomaly import AnomalyTrainer, AnomalyEval, AnomalyDemo, AnomalyExport
