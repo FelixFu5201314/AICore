@@ -7,3 +7,7 @@
 # 分类
 from .datasets import ClsDataset
 from .ClsDataloader import ClsDataloaderTrain, ClsDataloaderEval
+
+# 异常检测
+from .datasets import MVTecDataset
+from .AnomalyDataloader import MVTecDataloader
