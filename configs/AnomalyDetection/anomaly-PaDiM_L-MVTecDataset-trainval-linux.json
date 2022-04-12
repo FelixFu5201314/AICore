@@ -1,0 +1,61 @@
+{
+    "name": "train",
+    "type": "anomaly",
+    "fullName": "anomaly-PaDiM_L-MVTecDataset-trainval-linux",
+
+    "trainer": {
+        "type": "AnomalyTrainer",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/AnomalyDetection/PaDim/test"
+    },
+    "model": {
+        "type": "PaDiM",
+        "backbone": {
+            "type": "wide_resnet50_2"
+        },
+        "kwargs": {
+            "d_reduced": 550,
+            "image_size": 224,
+            "beta": 1
+        }
+    },
+    "dataloader": {
+        "type": "MVTecDataloader",
+        "dataset": {
+            "type": "MVTecDataset",
+            "kwargs": {
+                "data_dir": "/ai/data/AIDatasets/AnomalyDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/cameraC2",
+                "image_set": "train.txt",
+                "image_suffix": ".bmp",
+                "mask_suffix": ".png",
+                "resize": 224,
+                "cropsize": 224,
+                "mean": [0.335782, 0.335782, 0.335782],
+                "std": [0.256730, 0.256730, 0.256730]
+            }
+        },
+        "kwargs": {
+            "num_workers": 0,
+            "batch_size": 32
+        }
+    },
+    "evaluator": {
+        "type": "MVTecDataloader",
+        "dataset": {
+            "type": "MVTecDataset",
+            "kwargs": {
+                "data_dir": "/ai/data/AIDatasets/AnomalyDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/cameraC2",
+                "image_set": "val.txt",
+                "image_suffix": ".bmp",
+                "mask_suffix": ".png",
+                "resize": 224,
+                "cropsize": 224,
+                "mean": [0.335782, 0.335782, 0.335782],
+                "std": [0.256730, 0.256730, 0.256730]
+            }
+        },
+        "kwargs": {
+            "num_workers": 0,
+            "batch_size": 32
+        }
+    }
+}
