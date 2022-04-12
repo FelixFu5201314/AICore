@@ -1,0 +1,61 @@
+{
+    "name": "train",
+    "type": "anomaly",
+    "fullName": "anomaly-PaDiM_S-MVTecDataset-trainval-linux",
+
+    "trainer": {
+        "type": "AnomalyTrainer",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/AnomalyDetection/PaDim/test"
+    },
+    "model": {
+        "type": "PaDiM",
+        "backbone": {
+            "type": "resnet18"
+        },
+        "kwargs": {
+            "d_reduced": 100,
+            "image_size": 224,
+            "beta": 1
+        }
+    },
+    "dataloader": {
+        "type": "MVTecDataloader",
+        "dataset": {
+            "type": "MVTecDataset",
+            "kwargs": {
+                "data_dir": "/ai/data/AIDatasets/AnomalyDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/zipper",
+                "image_set": "train.txt",
+                "image_suffix": ".png",
+                "mask_suffix": ".png",
+                "resize": 224,
+                "cropsize": 224,
+                "mean": [0.485, 0.456, 0.406],
+                "std": [0.229, 0.224, 0.225]
+            }
+        },
+        "kwargs": {
+            "num_workers": 0,
+            "batch_size": 32
+        }
+    },
+    "evaluator": {
+        "type": "MVTecDataloader",
+        "dataset": {
+            "type": "MVTecDataset",
+            "kwargs": {
+                "data_dir": "/ai/data/AIDatasets/AnomalyDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/zipper",
+                "image_set": "val.txt",
+                "image_suffix": ".png",
+                "mask_suffix": ".png",
+                "resize": 224,
+                "cropsize": 224,
+                "mean": [0.485, 0.456, 0.406],
+                "std": [0.229, 0.224, 0.225]
+            }
+        },
+        "kwargs": {
+            "num_workers": 0,
+            "batch_size": 32
+        }
+    }
+}
