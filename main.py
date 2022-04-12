@@ -190,6 +190,7 @@ def main_worker(modules_file, custom_file, parsers):
     if parsers.seed != 0:
         random.seed(parsers.seed)
         torch.manual_seed(parsers.seed)
+        torch.cuda.manual_seed_all(parsers.seed)    # 在GPU中设置生成随机数的种子
         torch.backends.cudnn.deterministic = True
         warnings.warn('You have chosen to seed training. '
                       'This will turn on the CUDNN deterministic setting, '
