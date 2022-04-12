@@ -27,7 +27,7 @@ from dao.utils import get_rank, get_local_rank, get_world_size  # 导入分布�
 @Registers.trainers.register
 class AnomalyTrainer:
     def __init__(self, exp, parser):
-        self.exp = exp  # DotMap 格式 的配置文件
+        self.exp = exp   # DotMap 格式 的配置文件
         self.parser = parser # 命令行配置文件
 
         self.start_time = datetime.datetime.now().strftime('%m-%d_%H-%M')  # 此次trainer的开始时间
@@ -46,15 +46,10 @@ class AnomalyTrainer:
 
     def _before_train(self):
         """
-                1.Logger Setting
-                2.Model Setting;
-                3.Optimizer Setting;
-                4.Resume setting;
-                5.DataLoader Setting;
-                6.Loss Setting;
-                7.Scheduler Setting;
-                8.Evaluator Setting;
-                """
+        1.Logger Setting
+        2.Model Setting;    包含fit和evaluate
+        3.DataLoader Setting;
+        """
         if self.parser.record:
             self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)  # 日志目录
         else:
@@ -93,6 +88,7 @@ class AnomalyTrainer:
             dataset=self.exp.evaluator.dataset,
             **self.exp.evaluator.kwargs)
 
+        logger.info("train start now .......")
     def _train(self):
         self.model.fit(self.train_loader, output_dir=self.output_dir)
 
