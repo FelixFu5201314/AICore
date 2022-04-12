@@ -10,7 +10,9 @@ import numpy as np
 from PIL import Image
 from loguru import logger
 
+import torch
 from torch.utils.data import Dataset
+from torchvision import transforms as T
 
 from dao.register import Registers
 
@@ -19,12 +21,15 @@ from dao.register import Registers
 class MVTecDataset(Dataset):
     def __init__(self,
                  data_dir=None,
-                 preproc=None,
                  image_set="",
-                 in_channels=1,
+                 in_channels=1,  # 没用到
                  cache=False,
-                 image_suffix=".png",
+                 image_suffix=".bmp",
                  mask_suffix=".png",
+                 resize=224,
+                 cropsize=224,
+                 mean=[0.335782, 0.335782, 0.335782],
+                 std=[0.256730, 0.256730, 0.256730],
                  **kwargs
                  ):
         """
@@ -51,11 +56,14 @@ class MVTecDataset(Dataset):
         """
         # set attr
         self.root = data_dir    # 数据集路径
-        self.preproc = preproc  # 预处理 transform
         self.is_train = True if image_set == "train.txt" else False  # 是否是训练
         self.in_channels = in_channels  # 输入图片通道数
         self.image_suffix = image_suffix    # 图片后缀
         self.mask_suffix = mask_suffix      # mask后缀
+        self.resize = resize
+        self.cropsize = cropsize
+        self.mean = mean
+        self.std = std
 
         # 存储image-mask pair
         self.x, self.y, self.mask = self.load_dataset_folder()  # x存放图片的路径；y标志此图片是否是good，good为0，非good为1；mask存放mask图片路径，good为空；
@@ -63,44 +71,29 @@ class MVTecDataset(Dataset):
         if cache:
             logger.warning("MVTecDataset not supported cache !")
 
-    def __getitem__(self, index):
-        image, mask, label, image_path = self.pull_item(index)  # image:ndarray, 图片；mask:ndarray,掩码；label:int，是否有mask； image_path:string，图片路径
-        if self.preproc is not None:
-            transformed = self.preproc(image=image, mask=mask)
-            image, mask = transformed['image'], transformed["mask"]
-        image = image.transpose(2, 0, 1)  # c, h, w
-        mask = mask.astype(np.int64)
-        return image, mask, label, image_path  # image:ndarray, 图片；mask:ndarray,掩码；label:int，是否有mask； image_path:string，图片路径
+        # set transforms
+        self.transform_x = T.Compose([T.Resize(self.resize, Image.ANTIALIAS),
+                                      T.CenterCrop(self.cropsize),
+                                      T.ToTensor(),
+                                      T.Normalize(mean=self.mean,  # 0.485, 0.456, 0.406
+                                                  std=self.std)])  # 0.229, 0.224, 0.225
+        self.transform_mask = T.Compose([T.Resize(self.resize, Image.NEAREST),
+                                         T.CenterCrop(self.cropsize),
+                                         T.ToTensor()])
 
-    def pull_item(self, index):
-        img, mask = self._load_img(index)
-        if self.in_channels == 1:
-            img = np.expand_dims(img.copy(), axis=2)
-        elif self.in_channels == 3:
-            img = img.copy()
-        return img, mask, self.y[index], self.x[index]
+    def __getitem__(self, idx):
+        x, y, mask = self.x[idx], self.y[idx], self.mask[idx]  # x存放图片的路径，y标志此图片是否是good（0），mask存放mask图片路径
 
-    def _load_img(self, index):
-        image_path = self.x[index]
-        has_mask = self.y[index]
-        mask_path = self.mask[index]
+        image = Image.open(x).convert('RGB')
+        image = self.transform_x(image)
 
-        # get image
-        image = None
-        if self.in_channels == 1:
-            image = Image.open(image_path).convert('L')
-        elif self.in_channels == 3:
-            image = Image.open(image_path)
-        image = np.array(image)
-
-        # get mask
-        if has_mask == 0:
-            mask = np.zeros(image.shape[:2])
+        if y == 0:
+            mask = torch.zeros([1, self.cropsize, self.cropsize])
         else:
-            mask = Image.open(mask_path)
-            mask = np.array(mask)
+            mask = Image.open(mask)
+            mask = self.transform_mask(mask)
 
-        return image, mask
+        return image, y, mask, x
 
     def load_dataset_folder(self):
         phase = 'train' if self.is_train else 'test'
@@ -132,7 +125,7 @@ class MVTecDataset(Dataset):
                 y.extend([1] * len(img_fpath_list))
                 gt_type_dir = os.path.join(gt_dir, img_type)
                 img_fname_list = [os.path.splitext(os.path.basename(f))[0] for f in img_fpath_list]
-                gt_fpath_list = [os.path.join(gt_type_dir, img_fname + '_mask' + self.mask_suffix)
+                gt_fpath_list = [os.path.join(gt_type_dir, img_fname + self.mask_suffix)
                                  for img_fname in img_fname_list]
                 mask.extend(gt_fpath_list)
 
