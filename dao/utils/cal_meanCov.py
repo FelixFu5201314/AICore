@@ -10,7 +10,7 @@ import numpy as np
 
 
 def calMeanRGB(filePath=None, imgH=512, imgW=512):
-    pathDir = os.listdir(filepath)
+    pathDir = os.listdir(filePath)
     R_channel = 0
     G_channel = 0
     B_channel = 0
@@ -45,7 +45,7 @@ def calMeanRGB(filePath=None, imgH=512, imgW=512):
 
 
 def calMeanGray(filePath=None, imgH=512, imgW=512):
-    pathDir = os.listdir(filepath)
+    pathDir = os.listdir(filePath)
     Gray_channel = 0
     num = len(pathDir) * imgH * imgW  # 这里（512,512）是每幅图片的大小，所有图片尺寸都一样
 
@@ -69,5 +69,7 @@ def calMeanGray(filePath=None, imgH=512, imgW=512):
 
 
 if __name__ == "__main__":
-    filepath = r'D:\Downloads\camera\C2-2_good\ROI'  # 数据集目录
-    calMeanGray(filepath,1024, 1024)
+    filepath = r'/ai/data/AIDatasets/AnomalyDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/light/train/good'  # 数据集目录
+    # calMeanGray(filepath, 2448, 2048)
+    calMeanRGB(filepath, 2448, 2048)
+    # light mean:       std:
