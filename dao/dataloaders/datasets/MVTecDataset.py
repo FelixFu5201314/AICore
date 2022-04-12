@@ -18,7 +18,9 @@ from dao.register import Registers
 
 CLASS_NAMES = ['bottle', 'cable', 'capsule', 'carpet', 'grid',
                'hazelnut', 'leather', 'metal_nut', 'pill', 'screw',
-               'tile', 'toothbrush', 'transistor', 'wood', 'zipper']
+               'tile', 'toothbrush', 'transistor', 'wood', 'zipper',
+               'light', 'light_D1', 'light_D2']
+
 
 @Registers.datasets.register
 class MVTecDataset(Dataset):
