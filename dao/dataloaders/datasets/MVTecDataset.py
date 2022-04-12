@@ -16,6 +16,9 @@ from torchvision import transforms as T
 
 from dao.register import Registers
 
+CLASS_NAMES = ['bottle', 'cable', 'capsule', 'carpet', 'grid',
+               'hazelnut', 'leather', 'metal_nut', 'pill', 'screw',
+               'tile', 'toothbrush', 'transistor', 'wood', 'zipper']
 
 @Registers.datasets.register
 class MVTecDataset(Dataset):
@@ -125,8 +128,12 @@ class MVTecDataset(Dataset):
                 y.extend([1] * len(img_fpath_list))
                 gt_type_dir = os.path.join(gt_dir, img_type)
                 img_fname_list = [os.path.splitext(os.path.basename(f))[0] for f in img_fpath_list]
-                gt_fpath_list = [os.path.join(gt_type_dir, img_fname + self.mask_suffix)
-                                 for img_fname in img_fname_list]
+                if self.root.split('/')[-1] in CLASS_NAMES:  # 如果是MVTec数据集，mask有_mask.png
+                    gt_fpath_list = [os.path.join(gt_type_dir, img_name + "_mask" + self.mask_suffix) for img_name in
+                                     img_fname_list]
+                else:   # 如果是自定义数据，则无_mask.png
+                    gt_fpath_list = [os.path.join(gt_type_dir, img_name + self.mask_suffix) for img_name in
+                                     img_fname_list]
                 mask.extend(gt_fpath_list)
 
         assert len(x) == len(y), 'number of x and y should be same'
