@@ -69,7 +69,8 @@ def calMeanGray(filePath=None, imgH=512, imgW=512):
 
 
 if __name__ == "__main__":
-    filepath = r'/ai/data/AIDatasets/AnomalyDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/light/train/good'  # 数据集目录
-    # calMeanGray(filepath, 2448, 2048)
-    calMeanRGB(filepath, 2448, 2048)
-    # light mean:       std:
+    filepath = r'/ai/data/AIDatasets/AnomalyDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/light_D1/train/good'  # 数据集目录
+    calMeanGray(filepath, 1024, 1024)
+    # calMeanRGB(filepath, 1024, 2048)
+    # light mean:[0.371106, 0.433505, 0.292935]   std:[0.236419, 0.230348, 0.142885]
+    # light_D1 mean: [0.428161, 0.428161, 0.428161] std:[0.175177, 0.175177, 0.175177]
