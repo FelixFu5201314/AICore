@@ -271,6 +271,7 @@ class SegTrainer:
 
     def _after_train(self):
         logger.info("Training of experiment is done and the best Acc is {:.2f}".format(self.best_acc))
+        logger.info("DONE")
 
     def _evaluate_and_save_model(self):
         if self.use_model_ema:
@@ -351,19 +352,24 @@ class SegTrainer:
 
 @Registers.trainers.register
 class SegEval:
-    def __init__(self, exp):
+    def __init__(self, exp, parser):
         self.exp = exp  # DotMap 格式 的配置文件
+        self.parser = parser  # 命令行配置文件
+
         self.start_time = datetime.datetime.now().strftime('%m-%d_%H-%M')   # 此次trainer的开始时间
 
-    def eval(self):
+    def run(self):
         self._before_eval()
-        pixAcc, mIoU, Class_IoU_dict = self.evaluator.evaluate(
-            self.model, get_world_size() > 1,
-            device="cuda:{}".format(get_local_rank()))
+        pixAcc, mIoU, Class_IoU_dict = self.evaluator.evaluate(self.model,
+                                                               get_world_size() > 1,
+                                                               device="cuda:{}".format(get_local_rank()),
+                                                               output_dir=self.output_dir,
+                                                               save_pic=True
+                                                               )
         logger.info("pixACC:{}\nmIoU:{}\nClass_IoU_dict:{}".format(pixAcc, mIoU, Class_IoU_dict))
         with open(os.path.join(self.output_dir, "result.txt"), 'w', encoding='utf-8') as result_file:
             result_file.write("pixACC:{}\nmIoU:{}\nClass_IoU_dict:{}".format(pixAcc, mIoU, Class_IoU_dict))
-        return 0, self.output_dir
+        logger.info("DONE")
 
     def _before_eval(self):
         """
@@ -408,36 +414,63 @@ class SegEval:
 
 @Registers.trainers.register
 class SegDemo:
-    def __init__(self, exp):
+    def __init__(self, exp, parser):
         self.exp = exp  # DotMap 格式 的配置文件
+        self.parser = parser  # 命令行配置文件
+
         self.start_time = datetime.datetime.now().strftime('%m-%d_%H-%M')  # 此次trainer的开始时间
+
+        # 因为SegDemo只支持单机单卡
+        assert self.parser.devices == 1, "exp.envs.gpus.devices must 1, please set again "
+        assert self.parser.num_machines == 1, "exp.envs.gpus.devices must 1, please set again "
+        assert self.parser.machine_rank == 0, "exp.envs.gpus.devices must 0, please set again "
+
+    def run(self):
+        self._before_demo()
+        results = []
+        for image, shape, img_p in self.images:
+            image = torch.tensor(image).unsqueeze(0)  # 1, c, h, w
+            image = image.to(device="cuda:{}".format(self.parser.gpu))  # 1, c, h, w
+            output = self.model(image)
+            output = np.uint8(output.data.max(1)[1].cpu().numpy()[0])
+            output = colorize_mask(output, get_palette(self.exp.model.kwargs.num_classes))
+            output = output.resize((shape[1], shape[0]))
+            results.append((output, img_p))
+        os.makedirs(os.path.join(self.output_dir, "pictures"), exist_ok=True)
+        for i, (image, img_p) in enumerate(results):
+            shutil.copy(img_p, os.path.join(self.output_dir, "pictures", os.path.basename(img_p)[:-4]+".jpg"))
+            image.save(os.path.join(self.output_dir, "pictures", os.path.basename(img_p)[:-4]+".png"))
+        logger.info("DONE")
 
     def _before_demo(self):
         """
         1.Logger Setting
         2.Model Setting;
         """
-        self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)
-        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"demo_txt", mode="a")
-        logger.info("....... Train Before, Setting something ...... ")
+        if self.parser.record:
+            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)  # 日志目录
+        else:
+            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name)  # 日志目录
+            if os.path.exists(self.output_dir):  # 如果存在self.output_dir删除
+                shutil.rmtree(self.output_dir)
+        setup_logger(self.output_dir, distributed_rank=0, filename=f"demo_log.txt", mode="a")  # 输出日志重定向
+        logger.info("....... Demo Before, Setting something ...... ")
         logger.info("1. Logging Setting ...")
         logger.info(f"create log file {self.output_dir}/demo_log.txt")  # log txt
-        logger.info("exp value:\n{}".format(self.exp))
+        self.exp.pprint(pformat='json') if self.parser.detail else None  # 根据parser.detail来决定日志输出的详细
+        with open(os.path.join(self.output_dir, 'config.json'), 'w') as f:  # 将配置文件写到self.output_dir
+            json.dump(dict(self.exp), f)
 
         logger.info("2. Model Setting ...")
-        logger.info("model setting, on cpu")
-        self.model = Registers.seg_models.get(self.exp.model.type)(self.exp.model.backbone, **self.exp.model.kwargs)
-        if self.exp.envs.gpus.devices == 1:
-            self.model.to("cuda:0")
-        logger.info("\n{}".format(self.model))  # log model structure
-        # summary(model, input_size=tuple(self.exp.model.summary_size), device="{}".format(next(model.parameters()).device))  # log torchsummary model
-        if self.exp.envs.gpus.devices == 1:
-            ckpt = torch.load(self.exp.trainer.ckpt, map_location="cpu")["model"]
-        else:
-            ckpt = torch.load(self.exp.trainer.ckpt, map_location="cuda:0")["model"]
+        torch.cuda.set_device(self.parser.gpu)
+        model = Registers.seg_models.get(self.exp.model.type)(self.exp.model.backbone, **self.exp.model.kwargs)
+        logger.info("\n{}".format(model)) if self.parser.detail else None  # log model structure
+        summary(model, input_size=(3, 224, 224), device="cpu") if self.parser.detail else None  # log torchsummary model
+        model.to("cuda:{}".format(self.parser.gpu))  # model to self.device
 
-        self.model = load_ckpt(self.model, ckpt)
-
+        ckpt_file = self.exp.trainer.ckpt
+        ckpt = torch.load(ckpt_file, map_location="cuda:{}".format(self.parser.gpu))["model"]
+        self.model = load_ckpt(model, ckpt)
         self.model.eval()
 
         self.images = self._get_images()  # ndarray
@@ -452,13 +485,9 @@ class SegDemo:
     def _get_images(self):
         results = []
         all_paths = []
-
-        if self.exp.images.type == "image":
-            all_paths.append(self.exp.images.path)
-        elif self.exp.images.type == "images":
-            all_p = [p for p in os.listdir(self.exp.images.path) if self._img_ok(p)]
-            for p in all_p:
-                all_paths.append(os.path.join(self.exp.images.path, p))
+        all_p = [p for p in os.listdir(self.exp.images.path) if self._img_ok(p)]
+        for p in all_p:
+            all_paths.append(os.path.join(self.exp.images.path, p))
 
         for img_p in all_paths:
             image = np.array(Image.open(img_p))  # h,w
@@ -470,26 +499,6 @@ class SegDemo:
             image = image.transpose(2, 0, 1)  # c, h, w
             results.append((image, shape, img_p))
         return results
-
-    def demo(self):
-        self._before_demo()
-        results = []
-        for image, shape, img_p in tqdm(self.images):
-            image = torch.tensor(image).unsqueeze(0)  # 1, c, h, w
-            if self.exp.envs.gpus.devices == 1:
-                image = image.to(device="cuda:0")  # 1, c, h, w
-            output = self.model(image)
-            if self.exp.envs.gpus.devices == 1:
-                output = output.to(device="cpu")
-            output = np.uint8(output.data.max(1)[1].cpu().numpy()[0])
-            output = colorize_mask(output, get_palette(self.exp.model.kwargs.num_classes))
-            output = output.resize((shape[1], shape[0]))
-            results.append((output, img_p))
-        os.makedirs(os.path.join(self.output_dir, "demo_result"), exist_ok=True)
-        for i, (image, img_p) in enumerate(results):
-            shutil.copy(img_p, os.path.join(self.output_dir, "demo_result", os.path.basename(img_p)[:-4]+".jpg"))
-            image.save(os.path.join(self.output_dir, "demo_result", os.path.basename(img_p)[:-4]+".png"))
-        return 0, self.output_dir
 
 
 @Registers.trainers.register

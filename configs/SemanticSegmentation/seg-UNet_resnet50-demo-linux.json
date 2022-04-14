@@ -1,0 +1,41 @@
+{
+    "name": "demo",
+    "type": "seg",
+    "fullName": "seg-UNet_resnet50-demo-linux",
+
+    "trainer": {
+        "type": "SegDemo",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/SemanticSegmentation/unet/test",
+        "ckpt": "/ai/data/AIPretrained/SemanticSegmentation/UNet_resnet50/train/best_ckpt.pth"
+    },
+    "model": {
+        "type": "Unet",
+        "backbone": {
+            "kwargs": {
+                "model_name": "resnet50",
+                "pretrained": true,
+                "checkpoint_path": "",
+                "exportable": true,
+                "in_chans": 3,
+                "features_only": true
+            }
+        },
+        "kwargs": {
+            "encoder_depth": 5,
+            "encoder_channels": [3, 64, 256, 512, 1024, 2048],
+            "decoder_channels": [256, 128, 64, 32, 32],
+            "num_classes": 21
+        }
+    },
+    "images": {
+        "type": "images",
+        "image_ext": [".jpg", ".jpeg", ".bmp", ".png"],
+        "path": "/ai/data/AIPretrained/SemanticSegmentation/images",
+        "transforms": {
+            "kwargs": {
+                "Resize":{"p": 1, "height":480, "width":480},
+                "Normalize": {"mean": [0.45734706, 0.43338275, 0.40058118], "std": [0.23965294, 0.23532275, 0.2398498], "p": 1}
+            }
+        }
+    }
+}
