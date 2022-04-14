@@ -232,7 +232,7 @@ class SegDataset(Dataset):
         list_path = os.path.join(self.root, self.image_set)
 
         with open(list_path, 'r', encoding='utf-8') as images_labels:
-            for image_label in images_labels:
+            for image_label in images_labels.readlines():
                 image_path = os.path.join(self.root, "images", image_label.strip() + self.image_suffix)
                 mask_path = os.path.join(self.root, "masks", image_label.strip() + self.mask_suffix)
                 self.ids.append((image_path, mask_path))
