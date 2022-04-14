@@ -7,6 +7,7 @@ from loguru import logger
 
 import torch.multiprocessing
 
+from dao.dataloaders.augments import get_transformer
 from dao.register import Registers
 from dao.utils import wait_for_the_master, get_local_rank, get_world_size
 from dao.dataloaders.dataloading import DataLoader, worker_init_reset_seed
@@ -84,7 +85,6 @@ def SegDataloaderEval(is_distributed=False, batch_size=None, num_workers=None, d
 if __name__ == "__main__":
     from PIL import Image
     import cv2
-    from dao.dataloaders.augments import get_transformer
     from dotmap import DotMap
     from dao.register import Registers
     from dao.utils import denormalization
