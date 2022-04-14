@@ -9,9 +9,9 @@
         "log_per_iter": 10,
         "eval_interval": 1,
 
-        "warmup_epochs": 5,
+        "warmup_epochs": 1,
         "no_aug_epochs": 5,
-        "max_epochs": 80,
+        "max_epochs": 2,
 
         "ckpt": null,
         "resume": false
@@ -69,7 +69,7 @@
         },
         "kwargs": {
             "num_workers": 8,
-            "batch_size": 16
+            "batch_size": 64
         }
     },
     "loss": {
@@ -115,7 +115,7 @@
             },
             "kwargs": {
                 "num_workers": 8,
-                "batch_size": 16
+                "batch_size": 64
             }
         }
 
