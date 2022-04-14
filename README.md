@@ -104,8 +104,16 @@
 |	|	|- 输出最优的结果
 ```
 
+### 3. Eval/Demo/Export流程
+
+Eval/Demo/Export是Train中的子集，或者过程比较简单，此处不再赘述，看代码即可
+
 ## 三、环境搭建
+
 ### 1. 容器制作
+
+本项目的实验环境全部是在Docker中完成的，docker镜像的制作过程如下
+
 ```
 sudo docker pull nvcr.io/nvidia/pytorch:22.02-py3
 sudo docker run -it -v /home/user/data:/root/temp nvcr.io/nvidia/pytorch:22.02-py3 bash
@@ -125,6 +133,7 @@ pip install dotmap loguru albumentations torchcam timm torchsummary     # AICore
 
 ## 四、如何使用
 ### 1. ImageClassification
+
 ```
 1. trainval
 # 单机单卡
@@ -153,20 +162,128 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 
 ```
 
+### 2. SemanticSegmentation
+
+```
+1. trainval
+# 单机单卡
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+
+# 单机多卡
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+
+# 多机多卡
+# use master ip 10.1.130.111
+CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+
+# use docker ip 172.17.0.2
+CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+
+2. eval
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-ClsDataloader-ClsEvaluator-eval-linux.json
+
+3. demo
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-demo-linux.json
+
+4. export
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-export-linux.json
+
+```
+
+### 3. ObjectDetection
+
+```
+1. trainval
+# 单机单卡
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+
+# 单机多卡
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+
+# 多机多卡
+# use master ip 10.1.130.111
+CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+
+# use docker ip 172.17.0.2
+CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+
+2. eval
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-ClsDataloader-ClsEvaluator-eval-linux.json
+
+3. demo
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-demo-linux.json
+
+4. export
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-export-linux.json
+
+```
+
+### 4. AnomalyDetection
+
+```
+1. trainval
+# 单机单卡
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+
+# 单机多卡
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+
+# 多机多卡
+# use master ip 10.1.130.111
+CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+
+# use docker ip 172.17.0.2
+CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+
+2. eval
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-ClsDataloader-ClsEvaluator-eval-linux.json
+
+3. demo
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-demo-linux.json
+
+4. export
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-export-linux.json
+
+```
+
+
+
 ## 五、支持模型
+
 ### 1. BackBone:[notes](notes/BackBone/README.md)
-- timm:[code ref](https://github.com/rwightman/pytorch-image-models)
+- timm:[code ref](https://github.com/AICoreRef/pytorch-image-models)
 ### 2. ImageClassification:[notes](notes/ImageClassification/README.md)
-分类全部在timm基础上修改的, 因此[code ref](https://github.com/rwightman/pytorch-image-models)同上
+分类全部在timm基础上修改的, 因此[code ref](https://github.com/AICoreRef/pytorch-image-models)同上
 - efficientnetb0
 - efficientnetb1
 - resnet18
 - resnet34
 - resnet50
 - resnet101
+
+#### 效果对比
+
+| Model | 外观数据PZ val top1 | 外观数据PZ test top1 | Pretrained Model |
+| ----- | ------------------- | -------------------- | ---------------- |
+|       |                     |                      |                  |
+
 ### 3. SemanticSegmentation:[notes](notes/SemanticSegmentation/README.md)
-    - https://github.com/qubvel/segmentation_models.pytorch
+- Unet:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
     - https://github.com/yassouali/pytorch-segmentation
+
+#### 效果对比
+
+| Model | Backbone | PascalVoc val mIoU | PascalVoc test mIoU | Pretrained Model |
+| ----- | -------- | ------------------ | ------------------- | ---------------- |
+| Unet  | resnet50 |                    |                     |                  |
+
+
 ### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)
     - https://github.com/Megvii-BaseDetection/YOLOX
     - https://zhuanlan.zhihu.com/p/391396921
@@ -182,5 +299,4 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
         - DDP原理1: https://zhuanlan.zhihu.com/p/76638962 
         - DDP原理2: https://zhuanlan.zhihu.com/p/343951042
         - DDP随机种子: https://bbs.cvmart.net/articles/5491
-
 
