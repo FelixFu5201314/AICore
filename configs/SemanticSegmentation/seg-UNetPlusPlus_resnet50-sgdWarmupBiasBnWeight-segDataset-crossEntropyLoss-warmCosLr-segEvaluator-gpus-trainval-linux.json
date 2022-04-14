@@ -1,7 +1,7 @@
 {
     "name": "train",
     "type": "seg",
-    "fullName": "seg-UNet_resnet50-sgdWarmupBiasBnWeight-segDataset-crossEntropyLoss-warmCosLr-segEvaluator-gpus-trainval-linux",
+    "fullName": "seg-UNetPlusPlus_resnet50-sgdWarmupBiasBnWeight-segDataset-crossEntropyLoss-warmCosLr-segEvaluator-gpus-trainval-linux",
 
     "trainer": {
         "type": "SegTrainer",
@@ -9,16 +9,16 @@
         "log_per_iter": 10,
         "eval_interval": 1,
 
-        "warmup_epochs": 1,
+        "warmup_epochs": 5,
         "no_aug_epochs": 5,
-        "max_epochs": 2,
+        "max_epochs": 80,
 
         "ckpt": null,
         "resume": false
 
     },
     "model": {
-        "type": "Unet",
+        "type": "UnetPlusPlus",
         "backbone": {
             "kwargs": {
                 "model_name": "resnet50",
