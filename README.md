@@ -1,4 +1,9 @@
 # AI 核心库
+
+#### **功能添加说明**
+
+- 
+
 ## 一、项目由来
 
 在**工业流程**中，深度学习应用过程包括：
@@ -167,28 +172,28 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 ```
 1. trainval
 # 单机单卡
-CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/SemanticSegmentation/seg-UNet_resnet50-sgdWarmupBiasBnWeight-segDataset-crossEntropyLoss-warmCosLr-segEvaluator-gpus-trainval-linux.json
 
 # 单机多卡
-CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 2 -c /ai/AICore/configs/SemanticSegmentation/seg-UNet_resnet50-sgdWarmupBiasBnWeight-segDataset-crossEntropyLoss-warmCosLr-segEvaluator-gpus-trainval-linux.json
 
 # 多机多卡
 # use master ip 10.1.130.111
-CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
-CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2 -c /ai/AICore/configs/SemanticSegmentation/seg-UNet_resnet50-sgdWarmupBiasBnWeight-segDataset-crossEntropyLoss-warmCosLr-segEvaluator-gpus-trainval-linux.json
+CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2 -c /ai/AICore/configs/SemanticSegmentation/seg-UNet_resnet50-sgdWarmupBiasBnWeight-segDataset-crossEntropyLoss-warmCosLr-segEvaluator-gpus-trainval-linux.json
 
 # use docker ip 172.17.0.2
-CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
-CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2 -c /ai/AICore/configs/SemanticSegmentation/seg-UNet_resnet50-sgdWarmupBiasBnWeight-segDataset-crossEntropyLoss-warmCosLr-segEvaluator-gpus-trainval-linux.json
+CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2 -c /ai/AICore/configs/SemanticSegmentation/seg-UNet_resnet50-sgdWarmupBiasBnWeight-segDataset-crossEntropyLoss-warmCosLr-segEvaluator-gpus-trainval-linux.json
 
 2. eval
-CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-ClsDataloader-ClsEvaluator-eval-linux.json
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/SemanticSegmentation/seg-UNet_resnet50-segDataset-segEvaluator-eval-linux.json
 
 3. demo
-CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-demo-linux.json
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/SemanticSegmentation/seg-UNet_resnet50-demo-linux.json
 
 4. export
-CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-export-linux.json
+CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/SemanticSegmentation/seg-UNet_resnet50-export-linux.json
 
 ```
 
@@ -269,9 +274,9 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 
 #### 效果对比
 
-| Model | 外观数据PZ val top1 | 外观数据PZ test top1 | Pretrained Model |
-| ----- | ------------------- | -------------------- | ---------------- |
-|       |                     |                      |                  |
+| 模型 | 外观数据PZ-验证集top1 | 外观数据PZ-测试集top1 | 权重 |
+| ---- | --------------------- | --------------------- | ---- |
+|      |                       |                       |      |
 
 ### 3. SemanticSegmentation:[notes](notes/SemanticSegmentation/README.md)
 - Unet:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
@@ -279,9 +284,11 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 
 #### 效果对比
 
-| Model | Backbone | PascalVoc val mIoU | PascalVoc test mIoU | Pretrained Model |
-| ----- | -------- | ------------------ | ------------------- | ---------------- |
-| Unet  | resnet50 |                    |                     |                  |
+注意：以下实验均是跑通即可，均未调优
+
+| 模型 | 主干网络 | PascalVoc-验证集mIoU | PascalVoc -测试集mIoU | 权重 |
+| ---- | -------- | -------------------- | --------------------- | ---- |
+| Unet | resnet50 | 0.69                 | 未测                  |      |
 
 
 ### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)
@@ -294,9 +301,20 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 
 ### 5. AnomalyDetection:[notes](notes/AnomalyDetection/README.md)
 - PaDim [code ref](https://github.com/AICoreRef/PaDiM-Anomaly-Detection-Localization-master)
-### 6. 分布式
-    - Pytorch原生分布式
-        - DDP原理1: https://zhuanlan.zhihu.com/p/76638962 
-        - DDP原理2: https://zhuanlan.zhihu.com/p/343951042
-        - DDP随机种子: https://bbs.cvmart.net/articles/5491
+
+## 六、组件说明
+
+整个项目是由trainer(train,eval,demo,export), dataloader, dataset,model,optimizer,loss,scheduler,evaluator组件组成。其中，trainer负责将其他组件拼接起来，接下来会说明一些组件，但是不是每个都说下，详细请看代码。
+
+- 分布式组件
+  - Pytorch原生分布式
+    - DDP原理1: https://zhuanlan.zhihu.com/p/76638962 
+    - DDP原理2: https://zhuanlan.zhihu.com/p/343951042
+    - DDP随机种子: https://bbs.cvmart.net/articles/5491
+- Tricks
+  - 
+
+## 七、部署说明
+
+深度学习模型训练完毕后需要部署在嵌入式、主机、手机等设备上，部署过程请参考我的另一个项目[AIDeploy](https://github.com/FelixFu520/AIDeploy)
 
