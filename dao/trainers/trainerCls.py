@@ -111,7 +111,7 @@ class ClsTrainer:
         self.train_loader = Registers.dataloaders.get(self.exp.dataloader.type)(
             is_distributed=get_world_size() > 1,
             dataset=self.exp.dataloader.dataset,
-            seed=self.exp.seed,
+            seed=self.parser.seed,
             **self.exp.dataloader.kwargs
         )
         self.max_iter = len(self.train_loader)
