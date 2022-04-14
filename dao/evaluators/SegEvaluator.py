@@ -7,6 +7,7 @@ from tqdm import tqdm
 import numpy as np
 import torch
 import shutil
+from loguru import logger
 from PIL import Image
 
 from dao.utils import colorize_mask, get_palette
@@ -42,10 +43,11 @@ class SegEvaluator:
         Class_IoUs = []  # 用于存放all world size汇集的数据
 
         # progress_bar = tqdm if is_main_process() else iter
-        progress_bar = iter  # 使用tqdm在多GPU时，可能会卡死
+        # progress_bar = iter  # 使用tqdm在多GPU时，可能会卡死
 
         self.meter.reset_metrics()
-        for imgs, targets, paths in progress_bar(self.dataloader):
+        for i, (imgs, targets, paths) in enumerate(self.dataloader):
+            logger.info(f"evaluator iter:{i}/{self.iters_per_epoch}")
             with torch.no_grad():
                 imgs = imgs.to(device=device)
                 targets = targets.to(device=device)
@@ -98,5 +100,5 @@ class SegEvaluator:
         for k, v in Class_IoU.items():
             Class_IoU_dict[self.dataloader.dataset.labels_dict[str(k)]] = v
 
-        synchronize()
+        # synchronize()
         return pixAcc, mIoU, Class_IoU_dict
