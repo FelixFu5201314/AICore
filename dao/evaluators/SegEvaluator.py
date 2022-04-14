@@ -14,11 +14,18 @@ from dao.register import Registers
 @Registers.evaluators.register
 class SegEvaluator:
     def __init__(self, is_distributed=False, dataloader=None, num_classes=None):
-        self.dataloader, self.iters_per_epoch = Registers.dataloaders.get(dataloader.type)(
+        """
+        验证器
+        is_distributed:bool 是否是分布式
+        dataloader:dict dataloader的配置字典
+        num_classes:int 类别数
+        """
+        self.dataloader = Registers.dataloaders.get(dataloader.type)(
             is_distributed=is_distributed,
             dataset=dataloader.dataset,
             **dataloader.kwargs
         )
+        self.iters_per_epoch = len(self.dataloader)
         self.meter = MeterSegEval(num_classes)
         self.num_classes = num_classes
 
