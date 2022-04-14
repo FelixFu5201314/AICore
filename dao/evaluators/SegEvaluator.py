@@ -2,11 +2,14 @@
 # -*- coding:utf-8 -*-
 # Copyright (c) Megvii, Inc. and its affiliates.
 
-
+import os
 from tqdm import tqdm
-
+import numpy as np
 import torch
+import shutil
+from PIL import Image
 
+from dao.utils import colorize_mask, get_palette
 from dao.utils import is_main_process, synchronize, time_synchronized, gather, get_world_size, MeterSegEval
 from dao.register import Registers
 
@@ -29,7 +32,7 @@ class SegEvaluator:
         self.meter = MeterSegEval(num_classes)
         self.num_classes = num_classes
 
-    def evaluate(self, model, distributed=False, half=False, device=None):
+    def evaluate(self, model, distributed=False, half=False, device=None, output_dir=None, save_pic=False):
         tensor_type = torch.cuda.HalfTensor if half else torch.cuda.FloatTensor
         model = model.eval()
         if half:
@@ -48,6 +51,26 @@ class SegEvaluator:
                 targets = targets.to(device=device)
                 imgs = imgs.type(tensor_type)
                 outputs = model(imgs)
+                if save_pic:
+                    pic_path = os.path.join(output_dir, "pictures")
+                    os.makedirs(pic_path, exist_ok=True)
+                    # 存储每张图片 和 mask
+                    for index in range(len(imgs)):
+                        # img = imgs[index]
+                        output = outputs[index]
+                        mask = targets[index]
+                        path_img = paths[0][index]
+                        path_mask = paths[1][index]
+                        # 拷贝image
+                        shutil.copy(path_img, os.path.join(pic_path, os.path.basename(path_img)[:-4] + ".jpg"))
+                        # 生成预测mask
+                        output = np.uint8(output.unsqueeze(0).data.max(1)[1].cpu().numpy()[0])
+                        output = colorize_mask(output, get_palette(self.num_classes))
+                        output.save(os.path.join(pic_path, os.path.basename(path_img)[:-4] + "_pred.png"))
+                        # 生成target mask
+                        mask = colorize_mask(np.uint8(mask.cpu().numpy()), get_palette(self.num_classes))
+                        mask.save(os.path.join(pic_path, os.path.basename(path_img)[:-4] + "_label.png"))
+
                 seg_metrics = self.meter.eval_metrics(outputs, targets, self.num_classes)
                 self.meter.update_seg_metrics(*seg_metrics)
 
@@ -74,4 +97,6 @@ class SegEvaluator:
         Class_IoU_dict = {}
         for k, v in Class_IoU.items():
             Class_IoU_dict[self.dataloader.dataset.labels_dict[str(k)]] = v
+
+        synchronize()
         return pixAcc, mIoU, Class_IoU_dict
