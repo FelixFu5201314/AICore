@@ -1,4 +1,4 @@
-# AICore
+# AI 核心库
 ## 一、项目由来
 
 在**工业流程**中，深度学习应用过程包括：
@@ -153,20 +153,21 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 
 ```
 
-## 五、Supported
+## 五、支持模型
 ### 1. BackBone:[notes](notes/BackBone/README.md)
-- timm
-### 2. ImageClassification
+- timm:[code ref](https://github.com/rwightman/pytorch-image-models)
+### 2. ImageClassification:[notes](notes/ImageClassification/README.md)
+分类全部在timm基础上修改的, 因此[code ref](https://github.com/rwightman/pytorch-image-models)同上
 - efficientnetb0
 - efficientnetb1
 - resnet18
 - resnet34
 - resnet50
 - resnet101
-### 3. SemanticSegmentation
+### 3. SemanticSegmentation:[notes](notes/SemanticSegmentation/README.md)
     - https://github.com/qubvel/segmentation_models.pytorch
     - https://github.com/yassouali/pytorch-segmentation
-### 4. ObjectDetection
+### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)
     - https://github.com/Megvii-BaseDetection/YOLOX
     - https://zhuanlan.zhihu.com/p/391396921
     - YOLOX课程: https://edu.51cto.com/center/course/lesson/index?id=774242
