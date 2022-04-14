@@ -6,3 +6,4 @@
 
 from .ClsDataset import ClsDataset
 from .MVTecDataset import MVTecDataset
+from .SegDataset import SegDataset
