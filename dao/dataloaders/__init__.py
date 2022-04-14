@@ -4,6 +4,8 @@
 # @GitHub:https://github.com/felixfu520
 # @Copy From:
 
+# 所有model在__init__.py中导入，是为了自动注册到Registers中
+
 # 分类
 from .datasets import ClsDataset
 from .ClsDataloader import ClsDataloaderTrain, ClsDataloaderEval
@@ -11,3 +13,7 @@ from .ClsDataloader import ClsDataloaderTrain, ClsDataloaderEval
 # 异常检测
 from .datasets import MVTecDataset
 from .AnomalyDataloader import MVTecDataloader
+
+# 分割
+from .datasets import SegDataset
+from .SegDataloader import SegDataloaderTrain, SegDataloaderEval
