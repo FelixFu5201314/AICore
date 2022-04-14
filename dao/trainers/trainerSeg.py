@@ -100,7 +100,7 @@ class SegTrainer:
         torch.cuda.set_device(get_local_rank())
         model = Registers.seg_models.get(self.exp.model.type)(self.exp.model.backbone, **self.exp.model.kwargs)
         logger.info("\n{}".format(model)) if self.parser.detail else None  # log model structure
-        summary(model, input_size=(224, 224), device="cpu") if self.parser.detail else None  # log torchsummary model
+        summary(model, input_size=(3, 224, 224), device="cpu") if self.parser.detail else None  # log torchsummary model
         model.to("cuda:{}".format(get_local_rank()))    # model to self.device
 
         logger.info("3. Optimizer Setting")
@@ -112,10 +112,10 @@ class SegTrainer:
         logger.info("5. Dataloader Setting ... ")
         self.max_epoch = self.exp.trainer.max_epochs
         self.no_aug = self.start_epoch >= self.max_epoch - self.exp.trainer.no_aug_epochs
-        self.train_loader, self.max_iter = Registers.dataloaders.get(self.exp.dataloader.type)(
+        self.train_loader = Registers.dataloaders.get(self.exp.dataloader.type)(
             is_distributed=get_world_size() > 1,
             dataset=self.exp.dataloader.dataset,
-            seed=self.exp.seed,
+            seed=self.parser.seed,
             **self.exp.dataloader.kwargs
         )
         self.max_iter = len(self.train_loader)
@@ -188,12 +188,12 @@ class SegTrainer:
         # show img and mask
         # Image.fromarray(denormalization(
         #     inps[0].cpu().numpy(),
-        #     [0.398993, 0.431193, 0.452234],
-        #     [0.285205, 0.273126, 0.276610])
-        # ).save("/root/code/t.png")
+        #     [0.45734706, 0.43338275, 0.40058118],
+        #     [0.23965294, 0.23532275, 0.2398498])    # 注意mean和std要和config.json中的一致
+        # ).save("/ai/data/image.png")
         # import cv2
         # cv2.imwrite(
-        #     "/root/code/t3.png",
+        #     "/ai/data/mask.png",
         #     np.expand_dims(np.where(targets[0].cpu().numpy() == 1, 255, 0).astype(np.uint8), axis=2)
         # )
         inps = inps.to(self.data_type)
@@ -201,7 +201,7 @@ class SegTrainer:
         targets.requires_grad = False
         data_end_time = time.time()
 
-        with torch.cuda.amp.autocast(enabled=self.exp.trainer.amp):    # 开启auto cast的context manager语义（model+loss）
+        with torch.cuda.amp.autocast(enabled=self.parser.amp):    # 开启auto cast的context manager语义（model+loss）
             outputs = self.model(inps)
             if "aux_params" in self.exp.model.kwargs:
                 loss = self.loss(outputs[0], targets)  # PSP(master_branch)损失， 其他类似
@@ -238,7 +238,7 @@ class SegTrainer:
             * reset setting of resize
         """
         # log needed information
-        if (self.iter + 1) % self.exp.trainer.log.log_per_iter == 0 and get_rank() == 0:
+        if (self.iter + 1) % self.exp.trainer.log_per_iter == 0 and get_rank() == 0:
             # TODO check ETA logic
             left_iters = self.max_iter * self.max_epoch - (self.progress_in_iter + 1)
             eta_seconds = (self.train_metrics.batch_time.avg + self.train_metrics.data_time.avg) * left_iters
@@ -265,7 +265,7 @@ class SegTrainer:
     def _after_epoch(self):
         self._save_ckpt(ckpt_name="latest")
 
-        if (self.epoch + 1) % self.exp.trainer.log.eval_interval == 0:
+        if (self.epoch + 1) % self.exp.trainer.eval_interval == 0:
             all_reduce_norm(self.model)
             self._evaluate_and_save_model()
 
@@ -371,7 +371,7 @@ class SegEval:
         2.Model Setting;
         3.Evaluator Setting;
         """
-        self.output_dir = os.path.join(self.exp.trainer.log.log_dir, self.exp.name, self.start_time)
+        self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)
         setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"val_log.txt", mode="a")
         logger.info("....... Train Before, Setting something ...... ")
         logger.info("1. Logging Setting ...")
@@ -417,8 +417,8 @@ class SegDemo:
         1.Logger Setting
         2.Model Setting;
         """
-        self.output_dir = os.path.join(self.exp.trainer.log.log_dir, self.exp.name, self.start_time)
-        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"demo_log.txt", mode="a")
+        self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)
+        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"demo_txt", mode="a")
         logger.info("....... Train Before, Setting something ...... ")
         logger.info("1. Logging Setting ...")
         logger.info(f"create log file {self.output_dir}/demo_log.txt")  # log txt
@@ -502,7 +502,7 @@ class SegExport:
         self.model = self._get_model()
 
     def _log_setting(self):
-        self.output_dir = os.path.join(self.exp.trainer.log.log_dir, self.exp.name, self.start_time)
+        self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)
         setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"export_log.txt", mode="a")
         logger.info("....... Train Before, Setting something ...... ")
         logger.info("1. Logging Setting ...")
