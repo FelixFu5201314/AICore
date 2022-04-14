@@ -5,10 +5,11 @@
 # @Copy From:
 
 
-# 1.分类评价指标  —— evaluator,trainer组件会引用
+# 1.分类,分割 评价指标  —— evaluator,trainer组件会引用
 from .metricCls import MeterClsTrain
 from .metricCls import MeterClsEval
 from .metricCls import plot_confusion_matrix
+from .metricSeg import MeterSegTrain, MeterSegEval
 
 
 # 2.多GPU工具    —— dataloader组件会引用
@@ -56,6 +57,8 @@ from .metrics import occupy_mem, gpu_mem_usage
 # 9.EMA 指数平均
 from .ema import EMA, ModelEMA, is_parallel
 
+
 # 10.显示设置
 from .visualize import denormalization  # 反归一化
+from .palette import get_palette, colorize_mask  # 分割可视化
 
