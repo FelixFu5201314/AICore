@@ -280,15 +280,17 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 
 ### 3. SemanticSegmentation:[notes](notes/SemanticSegmentation/README.md)
 - Unet:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
+- Unet++:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
     - https://github.com/yassouali/pytorch-segmentation
 
 #### 效果对比
 
 注意：以下实验均是跑通即可，均未调优
 
-| 模型 | 主干网络 | PascalVoc-验证集mIoU | PascalVoc -测试集mIoU | 权重 |
-| ---- | -------- | -------------------- | --------------------- | ---- |
-| Unet | resnet50 | 0.69                 | 未测                  |      |
+| 模型   | 主干网络 | PascalVoc-验证集mIoU | PascalVoc -测试集mIoU | 权重 |
+| ------ | -------- | -------------------- | --------------------- | ---- |
+| UNet   | resnet50 | 0.69                 | 未测                  |      |
+| UNet++ | resnet50 |                      |                       |      |
 
 
 ### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)

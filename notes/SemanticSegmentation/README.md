@@ -7,4 +7,5 @@
 
 - UNet:[Convolutional Networks for Biomedical Image Segmentation (MICCAI)](https://paperswithcode.com/paper/u-net-convolutional-networks-for-biomedical) |[译文1](https://zhuanlan.zhihu.com/p/43927696)
 - UNetFamily:[github](https://github.com/ShawnBIT/UNet-family)
+- UNet++:[UNet++: A Nested U-Net Architecture for Medical Image Segmentation](https://paperswithcode.com/paper/unet-a-nested-u-net-architecture-for-medical) |[译文1](https://zhuanlan.zhihu.com/p/44958351)
 
