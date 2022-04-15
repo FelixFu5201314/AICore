@@ -283,18 +283,23 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 - Unet++:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
 - PSPNet:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
 - PSPNet2:[code ref](https://github.com/AICoreRef/pytorch-segmentation)
+- DeepLabv3:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
+- DeepLabv3Plus:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
+- DeepLabv3Plus2:[code ref](https://github.com/AICoreRef/pytorch-segmentation)
 
 #### 效果对比
 
-注意：以下实验均是跑通即可，均未调优
+注意：以下实验均是跑通即可，均未调优，epoch为80.
 
-| 模型    | 主干网络 | PascalVoc-验证集mIoU | PascalVoc -测试集mIoU | 权重 |
-| ------- | -------- | -------------------- | --------------------- | ---- |
-| UNet    | resnet50 | 0.69                 | 未测                  |      |
-| UNet++  | resnet50 | 0.70                 | 未测                  |      |
-| PSPNet  | resnet50 |                      |                       |      |
-| PSPNet2 | resnet50 |                      |                       |      |
-|         |          |                      |                       |      |
+| 模型           | 主干网络 | PascalVoc-验证集mIoU | PascalVoc -测试集mIoU | 权重 |
+| -------------- | -------- | -------------------- | --------------------- | ---- |
+| UNet           | resnet50 | 0.69                 | 未测                  |      |
+| UNet++         | resnet50 | 0.70                 | 未测                  |      |
+| PSPNet         | resnet50 |                      | 未测                  |      |
+| PSPNet2        | resnet50 |                      | 未测                  |      |
+| DeepLabV3      | resnet50 |                      | 未测                  |      |
+| DeepLabV3Plus  | resnet50 |                      | 未测                  |      |
+| DeepLabV3Plus2 | resnet50 |                      | 未测                  |      |
 
 
 ### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)
