@@ -9,3 +9,6 @@ from .heads import (
     SegmentationHead,
     ClassificationHead,
 )
+
+from .MyAdaptiveAvgPool2d import MyAdaptiveAvgPool2d
+

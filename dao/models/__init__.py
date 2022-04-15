@@ -18,4 +18,5 @@ from .anomaly import PaDiM
 # 4. SemanticSegmentation
 from .SemanticSegmentation import Unet
 from .SemanticSegmentation import UnetPlusPlus
-
+from .SemanticSegmentation import PSPNet
+from .SemanticSegmentation import PSPNet2

@@ -6,3 +6,5 @@
 
 from .unet import Unet
 from .unetplusplus import UnetPlusPlus
+from .pspnet import PSPNet
+from .pspnet2 import PSPNet2
