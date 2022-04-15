@@ -361,7 +361,7 @@ class Decoder(nn.Module):
 @Registers.seg_models.register
 class DeepLabV3Plus2(nn.Module):
     def __init__(self, backbones=None, num_classes=21, in_channels=3, backbone='xception', pretrained=True,
-                 output_stride=16, freeze_bn=False, freeze_backbone=False, **_):
+                 output_stride=16, freeze_bn=False, freeze_backbone=False, upsampling=8, **_):
 
         super(DeepLabV3Plus2, self).__init__()
         assert ('xception' or 'resnet' in backbone)
@@ -384,7 +384,10 @@ class DeepLabV3Plus2(nn.Module):
         x, low_level_features = self.backbone(x)
         x = self.ASSP(x)
         x = self.decoder(x, low_level_features)
-        x = F.interpolate(x, size=(H, W), mode='bilinear', align_corners=True)
+        # x = F.interpolate(x, size=(H, W), mode='bilinear', align_corners=True)    # 采样方法改变，为了导出onnx输出维度正确
+        upsample = nn.UpsamplingBilinear2d(scale_factor=H / x.size()[-1]) if H / x.size()[-1] > 1 else nn.Identity()
+        x = upsample(x)
+
         return x
 
     # Two functions to yield the parameters of the backbone
@@ -433,7 +436,7 @@ if __name__ == '__main__':
     torch.onnx.export(model,
                       x,
                       "/ai/data/deeplabv3Plus2.onnx",
-                      opset_version=10,
+                      opset_version=11,
                       input_names=["input"],
                       output_names=["output"]
     )
