@@ -48,7 +48,7 @@ class _PSPModule(nn.Module):
 @Registers.seg_models.register
 class PSPNet2(nn.Module):
     def __init__(self, backbones=None, num_classes=21, in_channels=3, backbone='resnet152', pretrained=True, use_aux=True, freeze_bn=False,
-                 freeze_backbone=False, aux_params=None):
+                 freeze_backbone=False, aux_params=None, upsampling=8):
         super(PSPNet2, self).__init__()
         norm_layer = nn.BatchNorm2d
         model = getattr(resnet, backbone)(pretrained, norm_layer=norm_layer)
@@ -67,7 +67,8 @@ class PSPNet2(nn.Module):
 
         self.master_branch = nn.Sequential(
             _PSPModule(m_out_sz, bin_sizes=[1, 2, 3, 6], norm_layer=norm_layer),
-            nn.Conv2d(m_out_sz // 4, num_classes, kernel_size=1)
+            nn.Conv2d(m_out_sz // 4, num_classes, kernel_size=1),
+            nn.UpsamplingBilinear2d(scale_factor=upsampling) if upsampling > 1 else nn.Identity()
         )
 
         self.auxiliary_branch = nn.Sequential(
@@ -92,8 +93,8 @@ class PSPNet2(nn.Module):
         x = self.layer4(x_aux)
 
         output = self.master_branch(x)
-        output = F.interpolate(output, size=input_size, mode='bilinear')
-        output = output[:, :, :input_size[0], :input_size[1]]
+        # output = F.interpolate(output, size=input_size, mode='bilinear', align_corners=True)
+        # output = output[:, :, :input_size[0], :input_size[1]]
 
         if self.training and self.use_aux:
             aux = self.auxiliary_branch(x_aux)
@@ -218,7 +219,7 @@ if __name__ == '__main__':
             "in_channels": 3,
             "backbone": "resnet50",
             "pretrained": True,
-            "use_aux": True,
+            "use_aux": False,
             "freeze_bn": False,
             "freeze_backbone": False
         }
@@ -237,11 +238,41 @@ if __name__ == '__main__':
     # 后再说， 2022.1.13
     torch.onnx.export(model,
                       x,
-                      "/ai/data/onnx_nadme.onnx",
-                      opset_version=13,
-                      export_params=True,
-                      do_constant_folding=True,
-                      verbose=True,
+                      "/ai/data/pspnet2.onnx",
+                      opset_version=11,
                       input_names=["input"],
                       output_names=["output"]
     )
+
+"""
+import onnx 
+import torch
+import torchvision 
+import netron
+
+net = torchvision.models.resnet18(pretrained=True).cuda()
+net.eval()
+静态：
+export_onnx_file = "./resnet18.onnx"
+torch.onnx.export(net,  # 待转换的网络模型和参数
+                torch.randn(1, 3, 224, 224, device='cuda'), # 虚拟的输入，用于确定输入尺寸和推理计算图每个节点的尺寸
+                export_onnx_file,  # 输出文件的名称
+                verbose=False,      # 是否以字符串的形式显示计算图
+                input_names=["input"],# + ["params_%d"%i for i in range(120)],  # 输入节点的名称，这里也可以给一个list，list中名称分别对应每一层可学习的参数，便于后续查询
+                output_names=["output"], # 输出节点的名称
+                opset_version=10,   # onnx 支持采用的operator set, 应该和pytorch版本相关，目前我这里最高支持10
+                do_constant_folding=True, # 是否压缩常量
+                )
+动态：
+export_onnx_file = "./resnet18_dynamic.onnx"
+torch.onnx.export(net,  # 待转换的网络模型和参数
+                torch.randn(1, 3, 224, 224, device='cuda'), # 虚拟的输入，用于确定输入尺寸和推理计算图每个节点的尺寸
+                export_onnx_file,  # 输出文件的名称
+                verbose=False,      # 是否以字符串的形式显示计算图
+                input_names=["input"],# + ["params_%d"%i for i in range(120)],  # 输入节点的名称，这里也可以给一个list，list中名称分别对应每一层可学习的参数，便于后续查询
+                output_names=["output"], # 输出节点的名称
+                opset_version=10,   # onnx 支持采用的operator set, 应该和pytorch版本相关，目前我这里最高支持10
+                do_constant_folding=True, # 是否压缩常量
+                dynamic_axes={"input":{0: "batch_size"}, "output":{0: "batch_size"},} #设置动态维度，此处指明input节点的第0维度可变，命名为batch_size
+                )
+"""
