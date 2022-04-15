@@ -5,7 +5,7 @@
 
     "trainer": {
         "type": "SegTrainer",
-        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/SemanticSegmentation/unet/test",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/SemanticSegmentation/UNetPlusPlus_resnet50/test",
         "log_per_iter": 10,
         "eval_interval": 1,
 
