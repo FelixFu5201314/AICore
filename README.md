@@ -281,16 +281,20 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 ### 3. SemanticSegmentation:[notes](notes/SemanticSegmentation/README.md)
 - Unet:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
 - Unet++:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
-    - https://github.com/yassouali/pytorch-segmentation
+- PSPNet:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
+- PSPNet2:[code ref](https://github.com/AICoreRef/pytorch-segmentation)
 
 #### 效果对比
 
 注意：以下实验均是跑通即可，均未调优
 
-| 模型   | 主干网络 | PascalVoc-验证集mIoU | PascalVoc -测试集mIoU | 权重 |
-| ------ | -------- | -------------------- | --------------------- | ---- |
-| UNet   | resnet50 | 0.69                 | 未测                  |      |
-| UNet++ | resnet50 |                      |                       |      |
+| 模型    | 主干网络 | PascalVoc-验证集mIoU | PascalVoc -测试集mIoU | 权重 |
+| ------- | -------- | -------------------- | --------------------- | ---- |
+| UNet    | resnet50 | 0.69                 | 未测                  |      |
+| UNet++  | resnet50 | 0.70                 | 未测                  |      |
+| PSPNet  | resnet50 |                      |                       |      |
+| PSPNet2 | resnet50 |                      |                       |      |
+|         |          |                      |                       |      |
 
 
 ### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)
@@ -319,4 +323,23 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 ## 七、部署说明
 
 深度学习模型训练完毕后需要部署在嵌入式、主机、手机等设备上，部署过程请参考我的另一个项目[AIDeploy](https://github.com/FelixFu520/AIDeploy)
+
+
+
+## 八、Debug
+
+#### 1. 问题1：
+
+**ONNX不支持adaptive_avg_pool2d**
+
+```
+# RuntimeError: Unsupported: ONNX export of operator adaptive_avg_pool2d,
+# since output size is not factor of input size.
+# Please feel free to request support or submit a pull request on PyTorch GitHub.
+```
+
+**解决方法**
+
+- **[替换nn.AdaptiveAvg2d](https://heroinlin.github.io/2018/08/15/Pytorch/Pytorch_export_onnx/)**
+- [参考1](https://www.cnblogs.com/xiaosongshine/p/10750908.html)
 
