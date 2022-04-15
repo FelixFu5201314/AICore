@@ -20,3 +20,7 @@ from .SemanticSegmentation import Unet
 from .SemanticSegmentation import UnetPlusPlus
 from .SemanticSegmentation import PSPNet
 from .SemanticSegmentation import PSPNet2
+from .SemanticSegmentation import DeepLabV3
+from .SemanticSegmentation import DeepLabV3Plus
+from .SemanticSegmentation import DeepLabV3Plus2
+
