@@ -295,11 +295,11 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 | -------------- | -------- | -------------------- | --------------------- | ---- |
 | UNet           | resnet50 | 0.69                 | 未测                  |      |
 | UNet++         | resnet50 | 0.70                 | 未测                  |      |
-| PSPNet         | resnet50 |                      | 未测                  |      |
-| PSPNet2        | resnet50 |                      | 未测                  |      |
-| DeepLabV3      | resnet50 |                      | 未测                  |      |
-| DeepLabV3Plus  | resnet50 |                      | 未测                  |      |
-| DeepLabV3Plus2 | resnet50 |                      | 未测                  |      |
+| PSPNet         | resnet50 | 0.72                 | 未测                  |      |
+| PSPNet2        | resnet50 | 0.76                 | 未测                  |      |
+| DeepLabV3      | resnet50 | 0.76                 | 未测                  |      |
+| DeepLabV3Plus  | resnet50 | 0.76                 | 未测                  |      |
+| DeepLabV3Plus2 | resnet50 | 0.75                 | 未测                  |      |
 
 
 ### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)

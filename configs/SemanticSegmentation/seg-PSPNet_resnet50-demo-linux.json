@@ -1,0 +1,46 @@
+{
+    "name": "demo",
+    "type": "seg",
+    "fullName": "seg-PSPNet_resnet50-demo-linux",
+
+    "trainer": {
+        "type": "SegDemo",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/SemanticSegmentation/PSPNet_resnet50/test",
+        "ckpt": "/ai/data/AIPretrained/SemanticSegmentation/PSPNet_resnet50/train/best_ckpt.pth"
+    },
+    "model": {
+        "type": "PSPNet",
+        "backbone": {
+            "kwargs": {
+                "model_name": "resnet50",
+                "pretrained": true,
+                "checkpoint_path": "",
+                "exportable": true,
+                "in_chans": 3,
+                "features_only": true
+            }
+        },
+        "kwargs": {
+            "encoder_channels": [3, 64, 256, 512, 1024, 2048],
+            "psp_out_channels": 512,
+            "num_classes": 21,
+            "upsampling": 32,
+            "aux_params": {
+                "mid_channels": 512,
+                "num_classes": 21,
+                "is_mask": true
+            }
+        }
+    },
+    "images": {
+        "type": "images",
+        "image_ext": [".jpg", ".jpeg", ".bmp", ".png"],
+        "path": "/ai/data/AIPretrained/SemanticSegmentation/images",
+        "transforms": {
+            "kwargs": {
+                "Resize":{"p": 1, "height":480, "width":480},
+                "Normalize": {"mean": [0.45734706, 0.43338275, 0.40058118], "std": [0.23965294, 0.23532275, 0.2398498], "p": 1}
+            }
+        }
+    }
+}
