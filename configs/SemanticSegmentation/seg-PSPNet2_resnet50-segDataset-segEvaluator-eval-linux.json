@@ -1,0 +1,58 @@
+{
+    "name": "eval",
+    "type": "seg",
+    "fullName": "seg-PSPNet2_resnet50-segDataset-segEvaluator-eval-linux",
+
+    "trainer": {
+        "type": "SegEval",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/SemanticSegmentation/PSPNet2_resnet50/test",
+        "ckpt": "/ai/data/AIPretrained/SemanticSegmentation/PSPNet2_resnet50/train/best_ckpt.pth"
+    },
+    "model": {
+        "type": "PSPNet2",
+        "backbone": {
+            "kwargs": {
+            }
+        },
+        "kwargs": {
+            "num_classes": 21,
+            "in_channels": 3,
+            "backbone": "resnet50",
+            "pretrained": true,
+            "use_aux": true,
+            "freeze_bn": false,
+            "freeze_backbone": false,
+            "upsampling": 8,
+            "aux_params": {"type": "placeholder"}
+        }
+    },
+    "evaluator": {
+        "type": "SegEvaluator",
+        "dataloader": {
+            "type": "SegDataloaderEval",
+            "dataset": {
+                "type": "SegDataset",
+                "kwargs": {
+                    "data_dir": "/ai/data/AIDatasets/SemanticSegmentation/4AR6N-L546S-DQSM9-424ZM-N4DZ2/VOC2012_Seg_Aug",
+                    "image_set": "val.txt",
+                    "in_channels": 3,
+                    "input_size": [480, 480],
+                    "cache": false,
+                    "image_suffix":".jpg",
+                    "mask_suffix":".png"
+                },
+                "transforms": {
+                    "kwargs": {
+                        "Resize": {"height": 480, "width": 480, "p": 1},
+                        "Normalize": {"mean": [0.45734706, 0.43338275, 0.40058118], "std": [0.23965294, 0.23532275, 0.2398498], "p": 1}
+                    }
+                }
+            },
+            "kwargs": {
+                "num_workers": 8,
+                "batch_size": 16
+            }
+        }
+
+    }
+}

@@ -1,0 +1,41 @@
+{
+    "name": "export",
+    "type": "seg",
+    "fullName": "seg-PSPNet2_resnet50-export-linux",
+
+    "trainer": {
+        "type": "SegExport",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/SemanticSegmentation/PSPNet2_resnet50/test",
+        "ckpt": "/ai/data/AIPretrained/SemanticSegmentation/PSPNet2_resnet50/train/best_ckpt.pth"
+    },
+    "model": {
+        "type": "PSPNet2",
+        "backbone": {
+            "kwargs": {
+            }
+        },
+        "kwargs": {
+            "num_classes": 21,
+            "in_channels": 3,
+            "backbone": "resnet50",
+            "pretrained": true,
+            "use_aux": true,
+            "freeze_bn": false,
+            "freeze_backbone": false,
+            "upsampling": 8,
+            "aux_params": {"type": "placeholder"}
+        }
+    },
+    "onnx": {
+        "type": "onnx",
+        "x_size": [8, 3, 480, 480],
+        "kwargs": {
+            "export_params": true,
+            "opset_version": 11,
+            "do_constant_folding": true,
+            "verbose":false,
+            "input_names": ["input"],
+            "output_names": ["output"]
+        }
+    }
+}
