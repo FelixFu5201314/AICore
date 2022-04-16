@@ -6,7 +6,7 @@
     "trainer": {
         "type": "ClsEval",
         "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/ImageClassification/efficientnetb0/test",
-        "ckpt": "/ai/data/test_weight/best_ckpt.pth"
+        "ckpt": "/ai/data/AIPretrained/ImageClassification/efficientnetb0/train/best_ckpt.pth"
     },
     "model": {
         "type": "TIMMC",
