@@ -1,0 +1,68 @@
+{
+    "name": "eval",
+    "type": "seg",
+    "fullName": "seg-DeepLabV3Plus_resnet50-segDataset-segEvaluator-eval-linux",
+
+    "trainer": {
+        "type": "SegEval",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/SemanticSegmentation/DeepLabV3Plus_resnet50/test",
+        "ckpt": "/ai/data/AIPretrained/SemanticSegmentation/DeepLabV3Plus_resnet50/train/best_ckpt.pth"
+    },
+    "model": {
+        "type": "DeepLabV3Plus",
+        "backbone": {
+            "kwargs": {
+                "model_name": "resnet50",
+                "pretrained": true,
+                "checkpoint_path": "",
+                "exportable": true,
+                "in_chans": 3,
+                "features_only": true,
+                "output_stride": 16
+
+            }
+        },
+        "kwargs": {
+            "encoder_channels": [3, 64, 256, 512, 1024, 2048],
+            "decoder_channels": 256,
+            "encoder_output_stride": 16,
+            "num_classes": 21,
+            "upsampling": 4,
+            "aux_params": {
+                "mid_channels": 512,
+                "num_classes": 21,
+                "is_mask": true,
+                "stride": 16
+            }
+        }
+    },
+    "evaluator": {
+        "type": "SegEvaluator",
+        "dataloader": {
+            "type": "SegDataloaderEval",
+            "dataset": {
+                "type": "SegDataset",
+                "kwargs": {
+                    "data_dir": "/ai/data/AIDatasets/SemanticSegmentation/4AR6N-L546S-DQSM9-424ZM-N4DZ2/VOC2012_Seg_Aug",
+                    "image_set": "val.txt",
+                    "in_channels": 3,
+                    "input_size": [480, 480],
+                    "cache": false,
+                    "image_suffix":".jpg",
+                    "mask_suffix":".png"
+                },
+                "transforms": {
+                    "kwargs": {
+                        "Resize": {"height": 480, "width": 480, "p": 1},
+                        "Normalize": {"mean": [0.45734706, 0.43338275, 0.40058118], "std": [0.23965294, 0.23532275, 0.2398498], "p": 1}
+                    }
+                }
+            },
+            "kwargs": {
+                "num_workers": 8,
+                "batch_size": 16
+            }
+        }
+
+    }
+}
