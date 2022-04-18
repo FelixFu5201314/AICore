@@ -177,6 +177,7 @@ class ClsDataset(Dataset):
 
         with open(list_path, 'r', encoding='utf-8') as images_labels:
             for image_label in images_labels:
+                image_label = image_label.replace("\\", '/')    # 如果生成的train.txt等文件是在windows上生成的，则替换分隔符
                 img_name = os.path.join(self.root, image_label.strip().split(separator)[0])
                 label_id = image_label.strip().split(separator)[1]
                 self.ids.append((img_name, label_id))
