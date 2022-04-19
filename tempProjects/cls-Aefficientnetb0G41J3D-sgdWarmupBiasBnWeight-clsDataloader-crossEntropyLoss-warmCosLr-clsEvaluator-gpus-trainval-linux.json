@@ -1,0 +1,123 @@
+{
+    "name": "train",
+    "type": "cls",
+    "fullName": "cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux",
+
+    "trainer": {
+        "type": "ClsTrainer",
+
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/ImageClassification/efficientnetb0/G41J3D",
+        "log_per_iter": 10,
+        "eval_interval": 1,
+
+        "warmup_epochs": 5,
+        "max_epochs": 40,
+
+        "ckpt": null,
+        "resume": false
+    },
+    "model": {
+        "type": "TIMMC",
+        "backbone": {
+            "kwargs": {
+                "model_name":"efficientnet_b0",
+                "pretrained": true,
+                "checkpoint_path": "",
+                "exportable": true,
+                "in_chans": 1,
+                "num_classes": 24
+            }
+        },
+        "kwargs": {
+        }
+    },
+    "optimizer": {
+        "type": "sgd_warmup_bias_bn_weight",
+        "kwargs": {
+            "lr": 0.01,
+            "weight_decay": 1e-4,
+            "momentum": 0.9,
+            "warmup_lr": 0
+        }
+    },
+    "dataloader": {
+        "type": "ClsDataloaderTrain",
+        "dataset": {
+            "type": "ClsDataset",
+            "kwargs": {
+                "data_dir": "/ai/data/AIDatasets/ImageClassification/4AR6N-L546S-DQSM9-424ZM-N4DZ2/G41J3D",
+                "image_set": "train.txt",
+                "in_channels": 1,
+                "input_size": [256, 256],
+                "cache": false,
+                "images_suffix": [".bmp"]
+            },
+            "transforms": {
+                "kwargs": {
+                    "RandomBrightnessContrast":{"p":0.2},
+                    "VerticalFlip":{"p":0.2},
+                    "HorizontalFlip":{"p":0.2},
+                    "Rotate":{"p":0.2, "limit":[-90, 90], "interpolation":0, "border_mode":2},
+                    "Blur":{"blur_limit":[3, 7], "p":0.2},
+                    "Normalize": {"mean": 0, "std": 1, "p": 1}
+                }
+            }
+        },
+        "kwargs": {
+            "num_workers": 4,
+            "batch_size": 64
+        }
+    },
+    "loss": {
+        "type": "CrossEntropyLoss",
+        "kwargs": {
+            "ignore_index": 255,
+            "weight": [
+                1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1,
+                1, 1, 1, 1
+            ],
+            "reduction": "mean"
+        }
+    },
+    "lr_scheduler": {
+        "type": "warm_cos_lr",
+        "kwargs": {
+            "warmup_epochs": 5,
+            "warmup_lr_start": 0
+        }
+    },
+    "evaluator": {
+        "type": "ClsEvaluator",
+        "dataloader": {
+            "type": "ClsDataloaderEval",
+            "dataset": {
+                "type": "ClsDataset",
+                "kwargs": {
+                    "data_dir": "/ai/data/AIDatasets/ImageClassification/4AR6N-L546S-DQSM9-424ZM-N4DZ2/G41J3D",
+                    "image_set": "val.txt",
+                    "in_channels": 1,
+                    "input_size": [256, 256],
+                    "cache": false,
+                    "images_suffix": [".bmp"]
+                },
+                "transforms": {
+                    "kwargs": {
+                        "Normalize": {"mean": 0, "std": 1, "p": 1}
+                    }
+            }
+            },
+            "kwargs": {
+                "num_workers": 4,
+                "batch_size": 64
+            }
+        },
+        "kwargs": {
+            "num_classes": 24,
+            "target_layer": "conv_head"
+        }
+
+    }
+}
