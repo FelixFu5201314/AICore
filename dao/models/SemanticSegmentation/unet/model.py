@@ -23,6 +23,7 @@ class Unet(SegmentationModel):
             num_classes=2,
             activation: Optional[Union[str, callable]] = None,
             aux_params: Optional[dict] = None,
+            isExport = False
     ):
         """
         Unet 继承自SegmentationModel，由4个组件组成，即encoder（backbone）不在此处定义、decoder、segmentation_Head、classificationHead；
@@ -36,7 +37,7 @@ class Unet(SegmentationModel):
             activation: Optional[Union[str, callable]] = None,  激活函数
             aux_params: Optional[dict] = None,  分类辅助分支
         """
-        super().__init__()
+        super().__init__(isExport)
 
         self.encoder = Registers.backbones.get("TIMM")(encoder)     # encoder
 

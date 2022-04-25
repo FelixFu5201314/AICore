@@ -5,7 +5,7 @@
 
     "trainer": {
         "type": "SegExport",
-        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/SemanticSegmentation/unet/test",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/SemanticSegmentation/UNet_resnet50/test",
         "ckpt": "/ai/data/AIPretrained/SemanticSegmentation/UNet_resnet50/train/best_ckpt.pth"
     },
     "model": {
@@ -24,7 +24,8 @@
             "encoder_depth": 5,
             "encoder_channels": [3, 64, 256, 512, 1024, 2048],
             "decoder_channels": [256, 128, 64, 32, 32],
-            "num_classes": 21
+            "num_classes": 21,
+            "isExport": true
         }
     },
     "onnx": {

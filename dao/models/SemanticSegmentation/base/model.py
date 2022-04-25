@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from . import initialization as init
 
 
@@ -8,6 +9,10 @@ class SegmentationModel(torch.nn.Module):
         共包含4组件，即：encoder（backbone）不在此处定义、decoder、segmentation_Head、classificationHead；
         共包含3个函数，即：initialize初始化权重，forward，predict
     """
+    def __init__(self, isExport=False):
+        super(SegmentationModel, self).__init__()
+        self.isExport = isExport
+
     def initialize(self):
         init.initialize_decoder(self.decoder)
         init.initialize_head(self.segmentation_head)
@@ -21,9 +26,13 @@ class SegmentationModel(torch.nn.Module):
 
         masks = self.segmentation_head(decoder_output)   # 对解码后的特征做个卷积得到最后结果[batch_size, num_class, height, width]
 
-        if self.classification_head is not None and self.training:
+        if self.classification_head is not None and self.training:  # 是否加入classificationHead
             labels = self.classification_head(features[-1])
             return masks, labels
+
+        if self.isExport and not self.training:  # 是否将(batchsize,numClasses, Height, Width)->(batchsize, Height, Width)
+            masks = torch.argmax(masks, dim=1).float()
+            # masks = torch.nn.Softmax()(masks)
 
         return masks
 
