@@ -48,8 +48,9 @@ class _PSPModule(nn.Module):
 @Registers.seg_models.register
 class PSPNet2(nn.Module):
     def __init__(self, backbones=None, num_classes=21, in_channels=3, backbone='resnet152', pretrained=True, use_aux=True, freeze_bn=False,
-                 freeze_backbone=False, aux_params=None, upsampling=8):
+                 freeze_backbone=False, aux_params=None, upsampling=8, isExport=False):
         super(PSPNet2, self).__init__()
+        self.isExport = isExport
         norm_layer = nn.BatchNorm2d
         model = getattr(resnet, backbone)(pretrained, norm_layer=norm_layer)
         m_out_sz = model.fc.in_features
@@ -101,6 +102,10 @@ class PSPNet2(nn.Module):
             aux = F.interpolate(aux, size=input_size, mode='bilinear')
             aux = aux[:, :, :input_size[0], :input_size[1]]
             return output, aux
+
+        if self.isExport and not self.training:  # 是否将(batchsize,numClasses, Height, Width)->(batchsize, Height, Width)
+            output = torch.argmax(output, dim=1).float()
+
         return output
 
     def get_backbone_params(self):

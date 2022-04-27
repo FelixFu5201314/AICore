@@ -23,7 +23,8 @@
             "freeze_bn": false,
             "freeze_backbone": false,
             "upsampling": 8,
-            "aux_params": {"type": "placeholder"}
+            "aux_params": {"type": "placeholder"},
+            "isExport": true
         }
     },
     "onnx": {
