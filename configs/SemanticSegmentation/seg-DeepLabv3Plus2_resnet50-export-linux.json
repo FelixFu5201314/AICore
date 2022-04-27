@@ -15,12 +15,13 @@
             }
         },
         "kwargs": {
-             "num_classes": 21,
-             "backbone": "resnet50",
-             "in_channels":3,
-             "pretrained":true,
-             "freeze_bn":false,
-             "freeze_backbone": false
+            "num_classes": 21,
+            "backbone": "resnet50",
+            "in_channels":3,
+            "pretrained":true,
+            "freeze_bn":false,
+            "freeze_backbone": false,
+            "isExport": true
         }
     },
     "onnx": {
