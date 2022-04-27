@@ -29,7 +29,8 @@
                 "mid_channels": 512,
                 "num_classes": 21,
                 "is_mask": true
-            }
+            },
+            "isExport": true
         }
     },
     "onnx": {

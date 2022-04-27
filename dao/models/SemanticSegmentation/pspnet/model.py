@@ -57,9 +57,10 @@ class PSPNet(SegmentationModel):
         num_classes: int = 1,
         activation: Optional[Union[str, callable]] = None,
         upsampling: int = 8,
-        aux_params: Optional[dict] = None
+        aux_params: Optional[dict] = None,
+        isExport = False
     ):
-        super().__init__()
+        super().__init__(isExport)
 
         self.encoder = Registers.backbones.get("TIMM")(encoder)
 
