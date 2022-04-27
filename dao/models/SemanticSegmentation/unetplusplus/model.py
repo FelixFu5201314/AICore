@@ -25,8 +25,9 @@ class UnetPlusPlus(SegmentationModel):
         num_classes=2,
         activation: Optional[Union[str, callable]] = None,
         aux_params: Optional[dict] = None,
+        isExport = False
     ):
-        super().__init__()
+        super().__init__(isExport)
 
         self.encoder = Registers.backbones.get("TIMM")(encoder)
         self.decoder = UnetPlusPlusDecoder(

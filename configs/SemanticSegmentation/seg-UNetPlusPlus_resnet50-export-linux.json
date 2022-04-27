@@ -24,7 +24,8 @@
             "encoder_depth": 5,
             "encoder_channels": [3, 64, 256, 512, 1024, 2048],
             "decoder_channels": [256, 128, 64, 32, 32],
-            "num_classes": 21
+            "num_classes": 21,
+            "isExport": true
         }
     },
     "onnx": {
