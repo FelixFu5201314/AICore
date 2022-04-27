@@ -33,7 +33,9 @@
                 "num_classes": 21,
                 "is_mask": true,
                 "stride": 16
-            }
+            },
+            "isExport": true
+
         }
     },
     "onnx": {

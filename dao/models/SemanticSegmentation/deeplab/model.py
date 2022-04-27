@@ -51,8 +51,9 @@ class DeepLabV3(SegmentationModel):
             activation: Optional[str] = None,
             upsampling: int = 8,
             aux_params: Optional[dict] = None,
+            isExport = False
     ):
-        super().__init__()
+        super().__init__(isExport)
 
         self.encoder = Registers.backbones.get("TIMM")(encoder)
 
@@ -124,8 +125,9 @@ class DeepLabV3Plus(SegmentationModel):
             activation: Optional[str] = None,
             upsampling: int = 4,
             aux_params: Optional[dict] = None,
+            isExport = False
     ):
-        super().__init__()
+        super().__init__(isExport)
 
         if encoder_output_stride not in [8, 16]:
             raise ValueError(
