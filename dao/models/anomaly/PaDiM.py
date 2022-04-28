@@ -24,6 +24,7 @@ import matplotlib
 from skimage import morphology
 from skimage.segmentation import mark_boundaries
 
+import onnx
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
@@ -385,3 +386,54 @@ class PaDiM_demo(torch.nn.Module):
 
         return embedding_vectors
 
+
+@Registers.anomaly_models.register
+class PaDiM_export(torch.nn.Module):
+    def __init__(self, backbone, device=None, d_reduced: int = 100, total_dim=None, image_size=224, beta=1,select_index=None):
+        super(PaDiM_export, self).__init__()
+        # backbone load model
+        if backbone.type == 'resnet18':
+            self.model = resnet18(pretrained=True, progress=True)
+        elif backbone.type == 'wide_resnet50_2':
+            self.model = wide_resnet50_2(pretrained=True, progress=True)
+        self.model.to(device)
+        self.model.eval()
+        # set model's intermediate outputs
+        self.outputs = []
+        self.test_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', [])])    # 存储结果输出
+        def hook(module, input, output):
+            self.outputs.append(output)
+        self.model.layer1[-1].register_forward_hook(hook)
+        self.model.layer2[-1].register_forward_hook(hook)
+        self.model.layer3[-1].register_forward_hook(hook)
+
+        self.image_size = image_size
+        self.d_reduced = d_reduced  # your RAM will thank you   选取维度
+        self.t_d = total_dim    # 总维度特征
+        self.beta = beta
+        self.device = device
+        self.select_index = torch.from_numpy(select_index)
+
+    def forward(self, x):
+        # logger.info("2.1 extract test set features")
+        with torch.no_grad():
+            _ = self.model(x.to(self.device))
+        # get intermediate layer outputs
+        for k, v in zip(self.test_outputs.keys(), self.outputs):
+            self.test_outputs[k].append(v.cpu().detach())
+
+        # 合并
+        for k, v in self.test_outputs.items():
+            self.test_outputs[k] = torch.cat(v, 0)
+
+        # logger.info("2.2 covert feature_maps to embedding_vectors ......")
+        embedding_vectors = self.test_outputs['layer1']
+        for layer_name in ['layer2', 'layer3']:
+            embedding_vectors = embedding_concat(embedding_vectors, self.test_outputs[layer_name])
+
+        # logger.info("merge embedding_vectors, and final size {}".format(embedding_vectors.shape))
+
+        # randomly select d dimension
+        embedding_vectors = torch.index_select(embedding_vectors, 1, self.select_index)
+
+        return embedding_vectors
