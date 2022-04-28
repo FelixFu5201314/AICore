@@ -418,22 +418,26 @@ class PaDiM_export(torch.nn.Module):
         # logger.info("2.1 extract test set features")
         with torch.no_grad():
             _ = self.model(x.to(self.device))
-        # get intermediate layer outputs
-        for k, v in zip(self.test_outputs.keys(), self.outputs):
-            self.test_outputs[k].append(v.cpu().detach())
 
-        # 合并
-        for k, v in self.test_outputs.items():
-            self.test_outputs[k] = torch.cat(v, 0)
+        return self.outputs[0], self.outputs[1], self.outputs[2]
 
-        # logger.info("2.2 covert feature_maps to embedding_vectors ......")
-        embedding_vectors = self.test_outputs['layer1']
-        for layer_name in ['layer2', 'layer3']:
-            embedding_vectors = embedding_concat(embedding_vectors, self.test_outputs[layer_name])
-
-        # logger.info("merge embedding_vectors, and final size {}".format(embedding_vectors.shape))
-
-        # randomly select d dimension
-        embedding_vectors = torch.index_select(embedding_vectors, 1, self.select_index)
-
-        return embedding_vectors
+        # 以下内容是返回embedding vectors，onnx不支持所以只导出resnet
+        # # get intermediate layer outputs
+        # for k, v in zip(self.test_outputs.keys(), self.outputs):
+        #     self.test_outputs[k].append(v.cpu().detach())
+        #
+        # # 合并
+        # for k, v in self.test_outputs.items():
+        #     self.test_outputs[k] = torch.cat(v, 0)
+        #
+        # # logger.info("2.2 covert feature_maps to embedding_vectors ......")
+        # embedding_vectors = self.test_outputs['layer1']
+        # for layer_name in ['layer2', 'layer3']:
+        #     embedding_vectors = embedding_concat(embedding_vectors, self.test_outputs[layer_name])
+        #
+        # # logger.info("merge embedding_vectors, and final size {}".format(embedding_vectors.shape))
+        #
+        # # randomly select d dimension
+        # embedding_vectors = torch.index_select(embedding_vectors, 1, self.select_index)
+        #
+        # return embedding_vectors
