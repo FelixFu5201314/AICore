@@ -327,3 +327,60 @@ def embedding_concat(x, y):
     z = F.fold(z, kernel_size=s, output_size=(H1, W1), stride=s)  # torch.Size([32, 768, 56, 56])
 
     return z
+
+
+@Registers.anomaly_models.register
+class PaDiM_demo(torch.nn.Module):
+    def __init__(self, backbone, device=None, d_reduced: int = 100, total_dim=None, image_size=224, beta=1):
+        super(PaDiM_demo, self).__init__()
+        # backbone load model
+        if backbone.type == 'resnet18':
+            self.model = resnet18(pretrained=True, progress=True)
+        elif backbone.type == 'wide_resnet50_2':
+            self.model = wide_resnet50_2(pretrained=True, progress=True)
+        self.model.to(device)
+        self.model.eval()
+        # set model's intermediate outputs
+        self.outputs = []
+        def hook(module, input, output):
+            self.outputs.append(output)
+        self.model.layer1[-1].register_forward_hook(hook)
+        self.model.layer2[-1].register_forward_hook(hook)
+        self.model.layer3[-1].register_forward_hook(hook)
+
+        self.image_size = image_size
+        self.d_reduced = d_reduced  # your RAM will thank you   选取维度
+        self.t_d = total_dim    # 总维度特征
+        self.beta = beta
+        self.device = device
+
+    def forward(self, x, select_index):
+        # logger.info("2.1 extract test set features")
+        test_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', [])])    # 存储结果输出
+        for img in x:
+            image_demo = torch.tensor(img[0]).unsqueeze(0)
+            with torch.no_grad():
+                _ = self.model(image_demo.to(self.device))
+            # get intermediate layer outputs
+            for k, v in zip(test_outputs.keys(), self.outputs):
+                test_outputs[k].append(v.cpu().detach())
+            # initialize hook outputs
+            self.outputs = []
+
+        # 合并
+        for k, v in test_outputs.items():
+            test_outputs[k] = torch.cat(v, 0)
+
+        # logger.info("2.2 covert feature_maps to embedding_vectors ......")
+        embedding_vectors = test_outputs['layer1']
+        for layer_name in ['layer2', 'layer3']:
+            embedding_vectors = embedding_concat(embedding_vectors, test_outputs[layer_name])
+
+        # logger.info("merge embedding_vectors, and final size {}".format(embedding_vectors.shape))
+
+        # randomly select d dimension
+        logger.info("2.3 randomly select {} dimension".format(self.d_reduced))
+        embedding_vectors = torch.index_select(embedding_vectors, 1, torch.from_numpy(select_index))
+
+        return embedding_vectors
+

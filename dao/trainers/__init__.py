@@ -9,6 +9,6 @@
 # 分类
 from .trainerCls import ClsTrainer, ClsEval, ClsDemo, ClsExport
 # 异常检测
-from .trainerAnomaly import AnomalyTrainer, AnomalyEval, AnomalyDemo, AnomalyExport
+from .trainerAnomaly import AnomalyTrainer, AnomalyDemo, AnomalyExport
 # 分割
 from .trainerSeg import SegTrainer, SegEval, SegExport, SegDemo
