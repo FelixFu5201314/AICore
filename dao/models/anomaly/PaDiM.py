@@ -331,7 +331,7 @@ def embedding_concat(x, y):
 
 @Registers.anomaly_models.register
 class PaDiM_demo(torch.nn.Module):
-    def __init__(self, backbone, device=None, d_reduced: int = 100, total_dim=None, image_size=224, beta=1):
+    def __init__(self, backbone, device=None, d_reduced: int = 100, total_dim=None, image_size=224, beta=1,select_index=None):
         super(PaDiM_demo, self).__init__()
         # backbone load model
         if backbone.type == 'resnet18':
@@ -353,8 +353,9 @@ class PaDiM_demo(torch.nn.Module):
         self.t_d = total_dim    # 总维度特征
         self.beta = beta
         self.device = device
+        self.select_index = select_index
 
-    def forward(self, x, select_index):
+    def forward(self, x):
         # logger.info("2.1 extract test set features")
         test_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', [])])    # 存储结果输出
         for img in x:
@@ -380,7 +381,7 @@ class PaDiM_demo(torch.nn.Module):
 
         # randomly select d dimension
         logger.info("2.3 randomly select {} dimension".format(self.d_reduced))
-        embedding_vectors = torch.index_select(embedding_vectors, 1, torch.from_numpy(select_index))
+        embedding_vectors = torch.index_select(embedding_vectors, 1, torch.from_numpy(self.select_index))
 
         return embedding_vectors
 

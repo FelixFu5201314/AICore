@@ -10,6 +10,7 @@ import datetime
 import numpy as np
 import shutil
 import json
+import pickle
 from PIL import Image
 from loguru import logger
 
@@ -150,9 +151,13 @@ class AnomalyDemo:
 
         logger.info("2. Model Setting ...")
         self.device = torch.device("cuda:{}".format(self.parser.gpu))
+        # 读取训练好的模型
+        with open(self.exp.trainer.ckpt, 'rb') as f:
+            train_output = pickle.load(f)
         self.model = Registers.anomaly_models.get(self.exp.model.type)(
             self.exp.model.backbone,
             device=self.device,
+            select_index=train_output[2],
             **self.exp.model.kwargs)  # get model from register
 
         logger.info("3. Dataloader Setting ...")
@@ -187,7 +192,7 @@ class AnomalyDemo:
         with open(self.exp.trainer.ckpt, 'rb') as f:
             train_output = pickle.load(f)
 
-        embedding_vectors = self.model(self.images, train_output[2])
+        embedding_vectors = self.model(self.images)
 
         logger.info("calculate multivariate Gaussian distribution, this will take a minute ......")
         logger.info("this operate will use cpu, please Reserve sufficient resources ......")
@@ -311,28 +316,67 @@ class AnomalyDemo:
 
 @Registers.trainers.register
 class AnomalyExport:
-    def __init__(self, exp):
+    def __init__(self, exp, parser):
         self.exp = exp  # DotMap 格式 的配置文件
-        self.output_dir = os.path.join(self.exp.onnx.onnx_path, self.exp.name)
-        os.makedirs(self.output_dir, exist_ok=True)
-        self.feature_extractor = self._get_model()
+        self.parser = parser  # 命令行配置文件
 
-    def _get_model(self):
-        import timm
-        feature_extractor = timm.create_model(
-            self.exp.model.backbone.type,
-            **self.exp.model.backbone.kwargs
-        )
-        for param in feature_extractor.parameters():
-            param.requires_grad = False
-        feature_extractor.eval()
-        return feature_extractor
+        self.start_time = datetime.datetime.now().strftime('%m-%d_%H-%M')  # 此次trainer的开始时间
+        self.data_type = torch.float16 if self.parser.fp16 else torch.float32  # 使用的数据类型
+        self.scaler = torch.cuda.amp.GradScaler(enabled=self.parser.amp)  # 在训练开始之前实例化一个Grad Scaler对象
 
-    @logger.catch
-    def export(self):
+        # anomaly只支持单机单卡
+        assert self.parser.devices == 1, "exp.envs.gpus.devices must 1, please set again "
+        assert self.parser.num_machines == 1, "exp.envs.gpus.devices must 1, please set again "
+        assert self.parser.machine_rank == 0, "exp.envs.gpus.devices must 0, please set again "
+
+    def _before_export(self):
+        """
+        1.Logger Setting
+        2.Model Setting;    包含fit和evaluate
+        3.DataLoader Setting;
+        """
+        if self.parser.record:
+            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name, self.start_time)  # 日志目录
+        else:
+            self.output_dir = os.path.join(self.exp.trainer.log_dir, self.exp.name)  # 日志目录
+            if get_rank() == 0:
+                if os.path.exists(self.output_dir):  # 如果存在self.output_dir删除
+                    try:
+                        shutil.rmtree(self.output_dir)
+                    except Exception as e:
+                        logger.info("global rank {} can't remove tree {}".format(get_rank(), self.output_dir))
+        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"export_log.txt",
+                     mode="a")  # 设置只有rank=0输出日志，并重定向
+
+        logger.warning("Anomaly Detection only supported Single Machine and Single GPU !!!!")
+        logger.info("....... Export Before, Setting something ...... ")
+
+        logger.info("1. Logging Setting ...")
+        logger.info(f"create log file {self.output_dir}/export_log.txt")  # log txt
+        self.exp.pprint(pformat='json') if self.parser.detail else None  # 根据parser.detail来决定日志输出的详细
+        with open(os.path.join(self.output_dir, 'config.json'), 'w') as f:  # 将配置文件写到self.output_dir
+            json.dump(dict(self.exp), f)
+        logger.info(f"create Tensorboard log {self.output_dir}")
+        self.tblogger = SummaryWriter(self.output_dir) if get_rank() == 0 else None  # log tensorboard
+
+        logger.info("2. Model Setting ...")
+        # 读取训练好的模型
+        with open(self.exp.trainer.ckpt, 'rb') as f:
+            train_output = pickle.load(f)
+        self.device = torch.device("cpu")
+        self.model = Registers.anomaly_models.get(self.exp.model.type)(
+            self.exp.model.backbone,
+            device=self.device,
+            select_index=train_output[2],
+            **self.exp.model.kwargs)  # get model from register
+
+    def run(self):
+
+        self._before_export()
         x = torch.randn(self.exp.onnx.x_size)
+
         onnx_path = os.path.join(self.output_dir, "export.onnx")
-        torch.onnx.export(self.feature_extractor,
+        torch.onnx.export(self.model,
                           x,
                           onnx_path,
                           **self.exp.onnx.kwargs)
