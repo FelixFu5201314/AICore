@@ -33,6 +33,7 @@ import timm
 import torch.nn.functional as F
 
 from dao.register import Registers
+from .MyAdaptiveAvgPool2d import MyAdaptiveAvgPool2d
 
 
 @Registers.anomaly_models.register
@@ -59,6 +60,8 @@ class PaDiM:
         self.beta = beta
         self.device = device
 
+        self.resize = torch.nn.AdaptiveAvgPool2d(int(image_size/4))     # 方式2所需要
+
     def fit(self, train_dataloader, output_dir=None):
         # extract train set features 提取特征
         train_feature_filepath = os.path.join(output_dir, 'features.pkl')  # 特征存放路径
@@ -76,15 +79,32 @@ class PaDiM:
                     train_outputs[k].append(v.cpu().detach())
                 # initialize hook outputs
                 self.outputs = []
+            # 合并特征
             for k, v in train_outputs.items():
                 train_outputs[k] = torch.cat(v, 0)
 
             # 将feature_maps 转为 embedding_vectors: torch.Size([200, 1792, 56, 56])
             logger.info("1.2 covert feature_maps to embedding_vectors ......")
-            embedding_vectors = train_outputs['layer1']
-            for layer_name in ['layer2', 'layer3']:
-                embedding_vectors = embedding_concat(embedding_vectors, train_outputs[layer_name])
-            logger.info("merge embedding_vectors, and final size {}".format(embedding_vectors.shape))
+            # 方式1（导出onnx失败）
+            # embedding_vectors = train_outputs['layer1']
+            # for layer_name in ['layer2', 'layer3']:
+            #     embedding_vectors = embedding_concat(embedding_vectors, train_outputs[layer_name])
+            # logger.info("merge embedding_vectors, and final size {}".format(embedding_vectors.shape))
+            # 方式2（导出onnx失败）
+            # embedding_vectors1 = train_outputs['layer1']
+            # embedding_vectors2 = train_outputs['layer2']
+            # embedding_vectors3 = train_outputs['layer3']
+            # embedding_vectors1 = self.resize(embedding_vectors1)
+            # embedding_vectors2 = self.resize(embedding_vectors2)
+            # embedding_vectors3 = self.resize(embedding_vectors3)
+            # embedding_vectors = torch.cat([embedding_vectors1, embedding_vectors2, embedding_vectors3], 1)
+            # 方式3
+            embedding_vectors1 = train_outputs['layer1']
+            embedding_vectors2 = train_outputs['layer2']
+            embedding_vectors3 = train_outputs['layer3']
+            embedding_vectors2 = torch.nn.Upsample(scale_factor=2, mode='nearest')(embedding_vectors2)
+            embedding_vectors3 = torch.nn.Upsample(scale_factor=4, mode='nearest')(embedding_vectors3)
+            embedding_vectors = torch.cat([embedding_vectors1, embedding_vectors2, embedding_vectors3], 1)
 
             # randomly select d dimension
             logger.info("1.3 randomly select {} dimension".format(self.d_reduced))
@@ -141,14 +161,31 @@ class PaDiM:
                 test_outputs[k].append(v.cpu().detach())
             # initialize hook outputs
             self.outputs = []
+        # 合并特征
         for k, v in test_outputs.items():
             test_outputs[k] = torch.cat(v, 0)
 
         # 将feature_maps 转为 embedding_vectors: torch.Size([200, 1792, 56, 56])
         logger.info("2.2 covert feature_maps to embedding_vectors ......")
-        embedding_vectors = test_outputs['layer1']
-        for layer_name in ['layer2', 'layer3']:
-            embedding_vectors = embedding_concat(embedding_vectors, test_outputs[layer_name])
+        # 方式1（导出onnx失败）
+        # embedding_vectors = test_outputs['layer1']
+        # for layer_name in ['layer2', 'layer3']:
+        #     embedding_vectors = embedding_concat(embedding_vectors, test_outputs[layer_name])
+        # 方式2（导出onnx失败）
+        # embedding_vectors1 = test_outputs['layer1']
+        # embedding_vectors2 = test_outputs['layer2']
+        # embedding_vectors3 = test_outputs['layer3']
+        # embedding_vectors1 = self.resize(embedding_vectors1)
+        # embedding_vectors2 = self.resize(embedding_vectors2)
+        # embedding_vectors3 = self.resize(embedding_vectors3)
+        # embedding_vectors = torch.cat([embedding_vectors1, embedding_vectors2, embedding_vectors3], 1)
+        # 方式3
+        embedding_vectors1 = test_outputs['layer1']
+        embedding_vectors2 = test_outputs['layer2']
+        embedding_vectors3 = test_outputs['layer3']
+        embedding_vectors2 = torch.nn.Upsample(scale_factor=2, mode='nearest')(embedding_vectors2)
+        embedding_vectors3 = torch.nn.Upsample(scale_factor=4, mode='nearest')(embedding_vectors3)
+        embedding_vectors = torch.cat([embedding_vectors1, embedding_vectors2, embedding_vectors3], 1)
 
         logger.info("merge embedding_vectors, and final size {}".format(embedding_vectors.shape))
 
@@ -356,6 +393,8 @@ class PaDiM_demo(torch.nn.Module):
         self.device = device
         self.select_index = select_index
 
+        self.resize = torch.nn.AdaptiveAvgPool2d(int(image_size/4))
+
     def forward(self, x):
         # logger.info("2.1 extract test set features")
         test_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', [])])    # 存储结果输出
@@ -374,9 +413,25 @@ class PaDiM_demo(torch.nn.Module):
             test_outputs[k] = torch.cat(v, 0)
 
         # logger.info("2.2 covert feature_maps to embedding_vectors ......")
-        embedding_vectors = test_outputs['layer1']
-        for layer_name in ['layer2', 'layer3']:
-            embedding_vectors = embedding_concat(embedding_vectors, test_outputs[layer_name])
+        # 方式1（导出onnx失败）
+        # embedding_vectors = test_outputs['layer1']
+        # for layer_name in ['layer2', 'layer3']:
+        #     embedding_vectors = embedding_concat(embedding_vectors, test_outputs[layer_name])
+        # 方式2（导出onnx失败）
+        # embedding_vectors1 = test_outputs['layer1']
+        # embedding_vectors2 = test_outputs['layer2']
+        # embedding_vectors3 = test_outputs['layer3']
+        # embedding_vectors1 = self.resize(embedding_vectors1)
+        # embedding_vectors2 = self.resize(embedding_vectors2)
+        # embedding_vectors3 = self.resize(embedding_vectors3)
+        # embedding_vectors = torch.cat([embedding_vectors1, embedding_vectors2, embedding_vectors3], 1)
+        # 方式3
+        embedding_vectors1 = test_outputs['layer1']
+        embedding_vectors2 = test_outputs['layer2']
+        embedding_vectors3 = test_outputs['layer3']
+        embedding_vectors2 = torch.nn.Upsample(scale_factor=2, mode='nearest')(embedding_vectors2)
+        embedding_vectors3 = torch.nn.Upsample(scale_factor=4, mode='nearest')(embedding_vectors3)
+        embedding_vectors = torch.cat([embedding_vectors1, embedding_vectors2, embedding_vectors3], 1)
 
         # logger.info("merge embedding_vectors, and final size {}".format(embedding_vectors.shape))
 
@@ -414,14 +469,20 @@ class PaDiM_export(torch.nn.Module):
         self.device = device
         self.select_index = torch.from_numpy(select_index)
 
+        # self.resize = torch.nn.AdaptiveAvgPool2d(int(image_size/4))
+        self.resize = MyAdaptiveAvgPool2d(output_size=56)
+
     def forward(self, x):
         # logger.info("2.1 extract test set features")
         with torch.no_grad():
             _ = self.model(x.to(self.device))
 
-        return self.outputs[0], self.outputs[1], self.outputs[2]
+        # 1、只导出resnet输出
+        # return self.outputs[0], self.outputs[1], self.outputs[2]
 
-        # 以下内容是返回embedding vectors，onnx不支持所以只导出resnet
+        # 2、导出embedding vectors
+        # 方式1（导出onnx失败）
+        # 以下内容是返回embedding vectors，onnx不支持所以只导出resnet----这个是原来合并embedding vector方法时使用的
         # # get intermediate layer outputs
         # for k, v in zip(self.test_outputs.keys(), self.outputs):
         #     self.test_outputs[k].append(v.cpu().detach())
@@ -441,3 +502,21 @@ class PaDiM_export(torch.nn.Module):
         # embedding_vectors = torch.index_select(embedding_vectors, 1, self.select_index)
         #
         # return embedding_vectors
+
+        # 使用方式2： 新的合并embedding vectors（导出onnx失败）
+        # embedding_vectors1 = self.resize(self.outputs[0])
+        # embedding_vectors2 = self.resize(self.outputs[1])
+        # embedding_vectors3 = self.resize(self.outputs[2])
+        # embedding_vectors = torch.cat([embedding_vectors1, embedding_vectors2, embedding_vectors3], 1)
+        # return embedding_vectors
+
+        # 方式3
+        self.outputs[1] = torch.nn.Upsample(scale_factor=2, mode='nearest')(self.outputs[1])
+        self.outputs[2] = torch.nn.Upsample(scale_factor=4, mode='nearest')(self.outputs[2])
+        embedding_vectors = torch.cat(self.outputs, 1)
+
+        # randomly select d dimension
+        # logger.info("2.3 randomly select {} dimension".format(self.d_reduced))
+        embedding_vectors = torch.index_select(embedding_vectors, 1, self.select_index)
+
+        return embedding_vectors
