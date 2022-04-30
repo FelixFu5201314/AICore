@@ -33,7 +33,6 @@ import timm
 import torch.nn.functional as F
 
 from dao.register import Registers
-from .MyAdaptiveAvgPool2d import MyAdaptiveAvgPool2d
 
 
 @Registers.anomaly_models.register
