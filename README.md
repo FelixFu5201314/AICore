@@ -133,7 +133,7 @@ ln -s /ai/data/AITorch/hub/ /root/.cache/torch/
 ln -s /opt/conda/bin/python /usr/bin/python
 ln -s /opt/conda/bin/pip /usr/bin/pip
 pip install python-socketio eventlet nvgpu xlsxwriter # AIServer
-pip install dotmap loguru albumentations torchcam timm torchsummary     # AICore
+pip install dotmap loguru albumentations torchcam timm torchsummary scikit-image xlsxwriter  # AICore
 ```
 
 ## 四、如何使用
