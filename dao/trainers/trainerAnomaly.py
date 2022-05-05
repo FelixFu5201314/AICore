@@ -60,7 +60,7 @@ class AnomalyTrainer:
             if get_rank() == 0:
                 if os.path.exists(self.output_dir):  # 如果存在self.output_dir删除
                     try:
-                        #shutil.rmtree(self.output_dir)
+                        shutil.rmtree(self.output_dir)
                         pass
                     except Exception as e:
                         logger.info("global rank {} can't remove tree {}".format(get_rank(), self.output_dir))
