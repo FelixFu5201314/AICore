@@ -5,3 +5,4 @@
 # @github:https://github.com/felixfu520
 
 from .PaDiM import PaDiM
+from .SPADE_PaDiM_PatchCore import PaDiM2

@@ -13,7 +13,7 @@ from .backbone import TIMM
 from .ImageClassification import TIMMC
 
 # 3. AnomalyDetection
-from .anomaly import PaDiM
+from .anomaly import PaDiM, PaDiM2
 
 # 4. SemanticSegmentation
 from .SemanticSegmentation import Unet
