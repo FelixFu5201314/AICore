@@ -6,8 +6,8 @@
     "trainer": {
         "type": "AnomalyExport",
         "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/AnomalyDetection/PaDim/test",
-        "ckpt":"/ai/data/AIPretrained/AnomalyDetection/PaDim/train_L_cameraC2_extractor3/features.pkl",
-        "threshold": "/ai/data/AIPretrained/AnomalyDetection/PaDim/train_L_cameraC2_extractor3/threshold.txt"
+        "ckpt":"/ai/data/AIPretrained/AnomalyDetection/PaDim/train_L_cameraC2_extractor3_20220506/features.pkl",
+        "threshold": "/ai/data/AIPretrained/AnomalyDetection/PaDim/train_L_cameraC2_extractor3_20220506/threshold.txt"
     },
     "model": {
         "type": "PaDiM_export",
@@ -22,7 +22,7 @@
     },
     "onnx": {
         "type": "onnx",
-        "x_size": [1, 3, 224, 224],
+        "x_size": [36, 3, 224, 224],
         "kwargs": {
             "export_params": true,
             "opset_version": 11,

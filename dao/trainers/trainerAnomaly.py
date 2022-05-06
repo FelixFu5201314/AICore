@@ -221,15 +221,21 @@ class AnomalyDemo:
         for i in range(score_map.shape[0]):
             score_map[i] = gaussian_filter(score_map[i], sigma=4)
 
-        # Normalization
-        max_score = score_map.max()
-        min_score = score_map.min()
-        scores = (score_map - min_score) / (max_score - min_score)  # (49, 224, 224)
-
         # 读取阈值信息
         with open(self.exp.trainer.threshold, 'r') as threshold_file:
             threshold = eval(threshold_file.readline())
             logger.info("threshold is {}".format(str(threshold)))
+            max_score = eval(threshold_file.readline())
+            logger.info("max_score is {}".format(str(max_score)))
+            min_score = eval(threshold_file.readline())
+            logger.info("min_score is {}".format(str(min_score)))
+
+        # Normalization
+        # max_score = score_map.max()
+        # min_score = score_map.min()
+        scores = (score_map - min_score) / (max_score - min_score)  # (49, 224, 224)
+
+
 
         # 绘制每张test图片预测信息
         # test_imgs:(3, 224, 224)

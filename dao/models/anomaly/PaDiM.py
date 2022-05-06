@@ -267,7 +267,9 @@ class PaDiM:
 
         threshold_txt = os.path.join(output_dir, 'threshold.txt')
         with open(threshold_txt, 'w') as f:
-            f.write(str(threshold))
+            f.write(str(threshold) + "\n")
+            f.write(str(max_score) + "\n")
+            f.write(str(min_score) + "\n")
 
 
 def plot_fig(test_img, scores, gts, threshold, save_dir, test_imgs_path, mean, std):
