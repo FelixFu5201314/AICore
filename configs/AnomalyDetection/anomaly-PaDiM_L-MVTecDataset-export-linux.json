@@ -6,8 +6,8 @@
     "trainer": {
         "type": "AnomalyExport",
         "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/AnomalyDetection/PaDim/test",
-        "ckpt":"/ai/data/AIPretrained/AnomalyDetection/PaDim/train_L_cameraC2_extractor3_20220506/features.pkl",
-        "threshold": "/ai/data/AIPretrained/AnomalyDetection/PaDim/train_L_cameraC2_extractor3_20220506/threshold.txt"
+        "ckpt":"/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/AnomalyDetection/PaDim/test/train/features.pkl",
+        "threshold": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/AnomalyDetection/PaDim/test/train/threshold.txt"
     },
     "model": {
         "type": "PaDiM_export",

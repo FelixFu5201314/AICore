@@ -128,9 +128,24 @@ class PaDiM:
 
             # save learned distribution
             logger.info("1.5 save learned distribution")
-            train_outputs = [mean, cov, np.asarray(idx)]
+            # 方式1，存储成python格式，C++读起来费劲
+            # train_outputs = [mean, cov, np.asarray(idx)]
+            # mean (550,3136)->(3136,550)一共56*56=3136个点，每个点有550个特征表示
+            # std (550,550,3136)->(3136,550,550),一共56*56=3136个点，（550，550）表示协方差矩阵
+            train_outputs = [mean.transpose(), cov.transpose(2,0,1), np.asarray(idx)]
             with open(train_feature_filepath, 'wb') as f:
                 pickle.dump(train_outputs, f)
+
+            # 方式2， 存储成txt格式，C++读起来方便
+            trainMean_feature_filepath = os.path.join(output_dir, 'features_mean.txt')  # 特征存放路径
+            with open(trainMean_feature_filepath, 'w') as f:
+                for mean_one in mean.transpose().flatten():
+                    f.write(str(mean_one)+"\n")
+            trainStd_feature_filepath = os.path.join(output_dir, 'features_std.txt')  # 特征存放路径
+            with open(trainStd_feature_filepath, 'w') as f:
+                for std_one in cov.transpose(2,0,1).flatten():
+                    f.write(str(std_one)+"\n")
+
         else:
             logger.info('load train set feature from: %s' % train_feature_filepath)
             with open(train_feature_filepath, 'rb') as f:
@@ -197,12 +212,13 @@ class PaDiM:
         logger.info("2.4 calculate multivariate Gaussian distribution, this will take a minute ......")
         logger.info("this operate will use cpu, please Reserve sufficient resources ......")
         B, C, H, W = embedding_vectors.size()
-        embedding_vectors =embedding_vectors.view(B, C, H * W).numpy()
+        embedding_vectors = embedding_vectors.view(B, C, H * W).numpy()
+        embedding_vectors = embedding_vectors.transpose(0, 2, 1)    # shape 改变
         dist_list = []
         for i in range(H * W):
-            mean = self.train_output[0][:, i]
-            conv_inv = np.linalg.inv(self.train_output[1][:, :, i])
-            dist = [mahalanobis(sample[:, i], mean, conv_inv) for sample in embedding_vectors]
+            mean = self.train_output[0][i, :]
+            conv_inv = np.linalg.inv(self.train_output[1][i, :, :])
+            dist = [mahalanobis(sample[i, :], mean, conv_inv) for sample in embedding_vectors]
             dist_list.append(dist)
 
         dist_list = np.array(dist_list).transpose(1, 0).reshape(B, H, W)
@@ -520,5 +536,10 @@ class PaDiM_export(torch.nn.Module):
         # randomly select d dimension
         # logger.info("2.3 randomly select {} dimension".format(self.d_reduced))
         embedding_vectors = torch.index_select(embedding_vectors, 1, self.select_index)
-
+        embedding_vectors = torch.transpose(
+            embedding_vectors.reshape(
+                embedding_vectors.shape[0],
+                embedding_vectors.shape[1],
+                embedding_vectors.shape[2] * embedding_vectors.shape[3]
+            ), 2, 1)    # (B, 550,56,56)->(B, 3136,550)
         return embedding_vectors

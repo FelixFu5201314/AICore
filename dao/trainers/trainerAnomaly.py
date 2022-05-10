@@ -199,15 +199,16 @@ class AnomalyDemo:
         logger.info("this operate will use cpu, please Reserve sufficient resources ......")
         B, C, H, W = embedding_vectors.size()
         embedding_vectors = embedding_vectors.view(B, C, H * W).numpy()
+        embedding_vectors = embedding_vectors.transpose(0, 2, 1)    # (550,550,3136)->(3136,550,550)
         dist_list = []
         logger.info("Evaluate calculate cov:")
         # for i in tqdm(range(H * W), desc="Evaluate calculate cov::"):
         for i in range(H * W):
             if i % 10 == 0:
                 logger.info("{}/{}".format(i, len(range(H * W))))
-            mean = train_output[0][:, i]
-            conv_inv = np.linalg.inv(train_output[1][:, :, i])
-            dist = [mahalanobis(sample[:, i], mean, conv_inv) for sample in embedding_vectors]
+            mean = train_output[0][i, :]
+            conv_inv = np.linalg.inv(train_output[1][i, :, :])
+            dist = [mahalanobis(sample[i, :], mean, conv_inv) for sample in embedding_vectors]
             dist_list.append(dist)
 
         dist_list = np.array(dist_list).transpose(1, 0).reshape(B, H, W)
