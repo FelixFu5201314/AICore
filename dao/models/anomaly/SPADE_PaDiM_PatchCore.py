@@ -305,7 +305,72 @@ def denormalization(x, mean=[0.335782, 0.335782, 0.335782], std=[0.256730, 0.256
 
 
 @Registers.anomaly_models.register
-class PaDiM2_demo(KNNExtractor):
+class PaDiM2_demo(torch.nn.Module):
+    def __init__(self,
+                 backbone, device=None, pool_last=False,
+                 image_size=224, feature_size=56,
+                 select_index=None, features_mean=None, features_cov=None,
+                 threshold=None, max_score=None, min_score=None,
+                 output_dir=None, **kwargs):
+        super(PaDiM2_demo, self).__init__()
+        # 定义网络结构
+        self.feature_extractor = timm.create_model(
+            backbone.type,
+            out_indices=(1, 2, 3),
+            features_only=True,
+            pretrained=True
+        )
+        for param in self.feature_extractor.parameters():
+            param.requires_grad = False
+        self.feature_extractor.eval()
+        self.feature_extractor.to(device)
+
+        self.pool = torch.nn.AdaptiveAvgPool2d(1) if pool_last else None
+        self.device = device
+        self.resize = torch.nn.AdaptiveAvgPool2d(feature_size)
+
+        # 定义其他权重信息
+        self.image_size = image_size
+        self.patch_lib = []
+        # features.pkl
+        self.mean = features_mean
+        self.cov = features_cov
+        self.select_index = select_index
+        # threshold.txt
+        self.threshold = threshold
+        self.max_score = max_score
+        self.min_score = min_score
+
+        self.output_dir = output_dir
+
+    def forward(self, x):
+        fmaps = []
+        with torch.no_grad():
+            for img in x:
+                feature_maps = self.feature_extractor(img[0].unsqueeze(0).to(self.device))
+                resized_maps = [self.resize(fmap) for fmap in feature_maps]
+                fmap = torch.cat(resized_maps, 1)  # torch.Size([32, 1792, 56, 56])
+                fmaps.append(fmap)
+        fmaps = torch.cat(fmaps, dim=0)  # torch.Size([36, 1792, 56, 56])
+
+        # reduce
+        x_ = fmaps[:, self.select_index, ...] - self.mean.to(self.device)  # torch.Size([32, 550, 56, 56])
+
+        left = torch.einsum('abkl,bckl->ackl', x_, self.cov.to(self.device))   # torch.Size([32, 550, 56, 56])
+        s_map = torch.sqrt(torch.einsum('abkl,abkl->akl', left, x_))  # torch.Size([32, 56, 56])
+        score_map = torch.nn.functional.interpolate(
+            s_map.unsqueeze(0), size=(self.image_size, self.image_size), mode='bilinear'
+        )  # torch.Size([1, 32, 224, 224])
+
+        # Normalization
+        logger.info("2.6 Normalization")
+        scores = ((score_map - self.min_score) / (self.max_score - self.min_score)).squeeze() # (B, 224, 224) scores是均值化后的结果
+
+        return scores
+
+
+@Registers.anomaly_models.register
+class PaDiM2_export(KNNExtractor):
     def __init__(self, backbone, device=None, d_reduced: int = 100, image_size=224, beta=1,
                  select_index=None, features_mean=None, features_cov=None,
                  threshold=None, max_score=None, min_score=None,

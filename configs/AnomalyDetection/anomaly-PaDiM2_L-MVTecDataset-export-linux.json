@@ -1,0 +1,35 @@
+{
+    "name": "export",
+    "type": "anomaly",
+    "fullName": "anomaly-PaDiM2_L-MVTecDataset-demo-linux",
+
+    "trainer": {
+        "type": "AnomalyExport2",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/AnomalyDetection/PaDim/test",
+        "ckpt":"/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/AnomalyDetection/PaDim2/test/train/features.pkl",
+        "threshold": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/AnomalyDetection/PaDim2/test/train/threshold.txt"
+    },
+    "model": {
+        "type": "PaDiM2_export",
+        "backbone": {
+            "type": "wide_resnet50_2"
+        },
+        "kwargs": {
+            "d_reduced": 550,
+            "image_size": 224,
+            "beta": 1
+        }
+    },
+    "onnx": {
+        "type": "onnx",
+        "x_size": [36, 3, 224, 224],
+        "kwargs": {
+            "export_params": true,
+            "opset_version": 11,
+            "do_constant_folding": true,
+            "verbose":true,
+            "input_names": ["input"],
+            "output_names": ["vectors"]
+        }
+    }
+}
