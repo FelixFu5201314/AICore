@@ -16,6 +16,21 @@ import timm
 
 import numpy as np
 from sklearn.metrics import roc_auc_score
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_curve
+import numpy as np
+from loguru import logger
+from random import sample
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_curve
+from sklearn.metrics import precision_recall_curve
+from scipy.spatial.distance import mahalanobis
+from scipy.ndimage import gaussian_filter
+import matplotlib.pyplot as plt
+import matplotlib
+from skimage import morphology
+from skimage.segmentation import mark_boundaries
 
 from .SPADE_PaDiM_PatchCore_Utils import GaussianBlur, get_coreset_idx_randomp, get_tqdm_params
 from dao.register import Registers
@@ -58,45 +73,308 @@ class KNNExtractor(torch.nn.Module):
         else:
             return feature_maps
 
-    def fit(self, _: DataLoader):
-        raise NotImplementedError
 
-    def predict(self, _: tensor):
-        raise NotImplementedError
+@Registers.anomaly_models.register
+class PaDiM2(KNNExtractor):
+    def __init__(self, backbone, device=None, d_reduced: int = 100, total_dim=None, image_size=224, beta=1):
+        super().__init__(
+            backbone_name=backbone.type,
+            out_indices=(1, 2, 3),
+            device=device
+        )
+        self.image_size = image_size
+        self.d_reduced = d_reduced  # your RAM will thank you
+        self.epsilon = 0.04  # cov regularization
+        self.patch_lib = []
+        self.resize = None
+        self.beta =beta
 
-    def evaluate(self, test_dl: DataLoader, output_dir=None) -> Tuple[float, float]:
+    def fit(self, train_dataloader, output_dir=None):
+        # extract train set features 提取特征
+        train_feature_filepath = os.path.join(output_dir, 'features.pkl')  # 特征存放路径
+        if not os.path.exists(train_feature_filepath):  # 如果特征不存在
+            # 提取特征
+            logger.info("1.1 extract train set features")
+            for i, (image, mask, label, image_path) in enumerate(train_dataloader):
+                logger.info("extract feature iter {}/{}".format(i, len(train_dataloader)))
+                feature_maps = self(image)
+                if self.resize is None:
+                    largest_fmap_size = feature_maps[0].shape[-2:]
+                    self.resize = torch.nn.AdaptiveAvgPool2d(largest_fmap_size)
+                resized_maps = [self.resize(fmap) for fmap in feature_maps]
+                self.patch_lib.append(torch.cat(resized_maps, 1))  # self.patch_lib = [ torch.Size([32, 1792, 56, 56]), ...]
+            self.patch_lib = torch.cat(self.patch_lib, 0)   # 合并特征 torch.Size([240, 1792, 56, 56])
+
+            # random projection
+            if self.patch_lib.shape[1] > self.d_reduced:
+                logger.info(f"PaDiM: (randomly) reducing {self.patch_lib.shape[1]} dimensions to {self.d_reduced}.")
+                self.r_indices = torch.randperm(self.patch_lib.shape[1])[:self.d_reduced]   # 550
+                self.patch_lib_reduced = self.patch_lib[:, self.r_indices, ...]     # torch.Size([240, 550, 56, 56])
+            else:
+                logger.info(f"PaDiM: d_reduced is higher than the actual number of dimensions, copying self.patch_lib ...")
+                self.patch_lib_reduced = self.patch_lib
+
+            # calcs
+            self.means = torch.mean(self.patch_lib, dim=0, keepdim=True)    # torch.Size([1, 1792, 56, 56])
+            self.means_reduced = self.means[:, self.r_indices, ...]     # torch.Size([1, 550, 56, 56])
+            x_ = self.patch_lib_reduced - self.means_reduced    # torch.Size([240, 550, 56, 56])
+
+            # cov calc
+            self.E = torch.einsum(
+                'abkl,bckl->ackl',
+                x_.permute([1, 0, 2, 3]),  # transpose first two dims
+                x_,
+            ) * 1 / (self.patch_lib.shape[0] - 1)  # torch.Size([550, 550, 56, 56])
+            self.E += self.epsilon * torch.eye(self.d_reduced).unsqueeze(-1).unsqueeze(-1)  # torch.Size([550, 550, 1, 1])
+            self.E_inv = torch.linalg.inv(self.E.permute([2, 3, 0, 1])).permute([2, 3, 0, 1])   # torch.Size([550, 550, 56, 56])
+
+            # save learned distribution
+            logger.info("save learned distribution")
+            train_outputs = [self.means_reduced, self.E_inv, self.r_indices]
+            with open(train_feature_filepath, 'wb') as f:
+                pickle.dump(train_outputs, f)
+        else:
+            logger.info('load train set feature from: %s' % train_feature_filepath)
+            with open(train_feature_filepath, 'rb') as f:
+                train_outputs = pickle.load(f)
+
+        self.train_output = train_outputs
+
+    def evaluate(self, test_dataloader, output_dir=None):
         """Calls predict step for each test sample."""
-        image_preds = []
-        image_labels = []
-        pixel_preds = []
-        pixel_labels = []
+        gt_list = []
+        gt_mask_list = []
+        test_imgs = []
+        test_imgs_path = []
 
-        for i, (image, y, mask, image_path) in enumerate(test_dl):
-            z_score, fmap = self.predict(image)
+        logger.info("2.1 extract test set features")
+        maps = []
+        for i, (image, y, mask, image_path) in enumerate(test_dataloader):
+            test_imgs.extend(image.cpu().detach().numpy())  # 所有图片
+            gt_list.extend(y.cpu().detach().numpy())    # 是否是good
+            gt_mask_list.extend(mask.cpu().detach().numpy())    # 所有mask
+            test_imgs_path.extend(image_path)   # 图片路径
 
-            # Normalization
-            fmap = fmap.numpy()
-            max_score = fmap.max()
-            min_score = fmap.min()
-            scores = (fmap - min_score) / (max_score - min_score)  # (49, 224, 224)
-            self.plot_fig(image[0], scores[0], 0.98, image_path[0])
-        #     image_preds.append(z_score.numpy())
-        #     image_labels.append(y.numpy())
-        #
-        #     pixel_preds.extend(fmap.flatten().numpy())
-        #     pixel_labels.extend(mask.flatten().numpy())
-        #
-        # image_preds = np.stack(image_preds)
-        #
-        # image_rocauc = roc_auc_score(image_labels, image_preds)
-        # pixel_rocauc = roc_auc_score(pixel_labels, pixel_preds)
-        #
-        # return image_rocauc, pixel_rocauc
+            feature_maps = self(image)
+            resized_maps = [self.resize(fmap) for fmap in feature_maps]
+            fmap = torch.cat(resized_maps, 1)  # torch.Size([32, 1792, 56, 56])
+
+            # reduce
+            x_ = fmap[:, self.train_output[2], ...] - self.train_output[0] # torch.Size([32, 550, 56, 56])
+
+            left = torch.einsum('abkl,bckl->ackl', x_, self.train_output[1])  # torch.Size([32, 550, 56, 56])
+            s_map = torch.sqrt(torch.einsum('abkl,abkl->akl', left, x_))  # torch.Size([32, 56, 56])
+            scaled_s_map = torch.nn.functional.interpolate(
+                s_map.unsqueeze(0), size=(self.image_size, self.image_size), mode='bilinear'
+            )  # torch.Size([1, 32, 224, 224])
+            maps.append(scaled_s_map)
+
+        score_map = torch.cat(maps, dim=1).squeeze().numpy()
+        logger.info("2.6 apply gaussian smoothing on the score map")
+        for i in range(score_map.shape[0]):
+            score_map[i] = gaussian_filter(score_map[i], sigma=4)
+        score_map = torch.tensor(score_map)
+        # Normalization
+        logger.info("2.6 Normalization")
+        max_score = score_map.max()
+        min_score = score_map.min()
+        scores = (score_map - min_score) / (max_score - min_score)  # (B, 224, 224) scores是均值化后的结果
+
+        # 以下是显示结果内容
+        logger.info("2.7 result .......")
+        fig, ax = plt.subplots(1, 2, figsize=(20, 10))  # 绘制ROC曲线
+        fig_img_rocauc = ax[0]
+        fig_pixel_rocauc = ax[1]
+
+        # calculate image-level ROC AUC score
+        logger.info("calculate image-level ROC AUC score")
+        # img_scores = scores.reshape(scores.shape[0], -1).max(axis=1)  # shape B
+        img_scores = scores.reshape(scores.shape[0], -1).max(axis=1)[0]  # shape B
+        gt_list = np.asarray(gt_list)  # shape B
+        fpr, tpr, _ = roc_curve(gt_list, img_scores)
+        img_roc_auc = roc_auc_score(gt_list, img_scores)
+        logger.info('image ROCAUC: %.3f' % (img_roc_auc))
+        fig_img_rocauc.plot(fpr, tpr, label='img_ROCAUC: %.3f' % (img_roc_auc))
+
+        # calculate per-pixel level ROCAUC
+        logger.info("calculate per-pixel level ROCAUC")
+        gt_mask = np.where(np.asarray(gt_mask_list) != 0, 1, 0)  # (49, 1, 224, 224)
+        fpr, tpr, _ = roc_curve(gt_mask.flatten(), scores.flatten())
+        per_pixel_rocauc = roc_auc_score(gt_mask.flatten(), scores.flatten())
+        logger.info('pixel ROCAUC: %.3f' % (per_pixel_rocauc))
+        fig_pixel_rocauc.plot(fpr, tpr, label='ROCAUC: %.3f' % (per_pixel_rocauc))
+
+        # 绘制ROC曲线，image-level&pixel-level
+        save_dir = os.path.join(output_dir, "pictures")
+        os.makedirs(save_dir, exist_ok=True)
+        fig.tight_layout()
+        fig.savefig(os.path.join(save_dir, 'roc_curve.png'), dpi=100)
+
+        # get optimal threshold
+        precision, recall, thresholds = precision_recall_curve(gt_mask.flatten(), scores.flatten())
+        a = (1 + self.beta ** 2) * precision * recall
+        b = self.beta ** 2 * precision + recall
+        f1 = np.divide(a, b, out=np.zeros_like(a), where=b != 0)
+        threshold = thresholds[np.argmax(f1)]
+
+        # 绘制每张test图片预测信息
+        mean = test_dataloader.dataset.mean
+        std = test_dataloader.dataset.std
+        plot_fig(test_imgs, scores, gt_mask_list, threshold, save_dir, test_imgs_path, mean, std)
+
+        threshold_txt = os.path.join(output_dir, 'threshold.txt')
+        with open(threshold_txt, 'w') as f:
+            f.write(str(threshold) + "\n")
+            f.write(str(max_score.numpy().item()) + "\n")
+            f.write(str(min_score.numpy().item()) + "\n")
+
+
+def plot_fig(test_img, scores, gts, threshold, save_dir, test_imgs_path, mean, std):
+    """
+    将test_img,scores,gts根据threshold绘制成图像，并保存到save_dir中
+    :param test_img: test_imgs:[(3, 224, 224), ..., batchsize]
+    :param scores:  scores: (batchsize, 224, 224)
+    :param gts: gt_mask_list: [(1, 224, 224), ..., batchsize]
+    :param threshold: float
+    :param save_dir: str
+    :param class_name: [img_path, ..., batchsize]
+    :return:
+    """
+    num = len(scores)
+    logger.info("number:{}".format(num))
+    vmax = scores.max() * 255.
+    vmin = scores.min() * 255.
+    for i in range(num):
+        img = test_img[i]
+        img = denormalization(img, mean=mean, std=std)
+        gt = gts[i].transpose(1, 2, 0).squeeze()  # .transpose(1, 2, 0)
+        heat_map = scores[i] * 255
+        mask = scores[i]
+        mask[mask > threshold] = 1
+        mask[mask <= threshold] = 0
+        kernel = morphology.disk(4)
+        mask = morphology.opening(mask, kernel)
+        mask *= 255
+        vis_img = mark_boundaries(img, mask, color=(1, 0, 0), mode='thick')
+        fig_img, ax_img = plt.subplots(1, 5, figsize=(12, 3))
+        fig_img.subplots_adjust(right=0.9)
+        norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+        for ax_i in ax_img:
+            ax_i.axes.xaxis.set_visible(False)
+            ax_i.axes.yaxis.set_visible(False)
+        ax_img[0].imshow(img)
+        ax_img[0].title.set_text('Image')
+        ax_img[1].imshow(gt, cmap='gray')
+        ax_img[1].title.set_text('GroundTruth')
+        ax = ax_img[2].imshow(heat_map, cmap='jet', norm=norm)
+        ax_img[2].imshow(img, cmap='gray', interpolation='none')
+        ax_img[2].imshow(heat_map, cmap='jet', alpha=0.5, interpolation='none')
+        ax_img[2].title.set_text('Predicted heat map')
+        ax_img[3].imshow(mask, cmap='gray')
+        ax_img[3].title.set_text('Predicted mask')
+        ax_img[4].imshow(vis_img)
+        ax_img[4].title.set_text('Segmentation result')
+        left = 0.92
+        bottom = 0.15
+        width = 0.015
+        height = 1 - 2 * bottom
+        rect = [left, bottom, width, height]
+        cbar_ax = fig_img.add_axes(rect)
+        cb = plt.colorbar(ax, shrink=0.6, cax=cbar_ax, fraction=0.046)
+        cb.ax.tick_params(labelsize=8)
+        font = {
+            'family': 'serif',
+            'color': 'black',
+            'weight': 'normal',
+            'size': 8,
+        }
+        cb.set_label('Anomaly Score', fontdict=font)
+
+        img_name = test_imgs_path[i].split("/")[-1][:-4] + ".png"
+        ngtype = test_imgs_path[i].split("/")[-2]
+        fig_img.savefig(os.path.join(save_dir, "{}_".format(ngtype) + img_name), dpi=100)
+        plt.close()
+
+
+def denormalization(x, mean=[0.335782, 0.335782, 0.335782], std=[0.256730, 0.256730, 0.256730]):
+    mean = np.array(mean)
+    std = np.array(std)
+    x = (((x.transpose(1, 2, 0) * std) + mean) * 255.).astype(np.uint8)
+
+    return x
+
+
+@Registers.anomaly_models.register
+class PaDiM2_demo(KNNExtractor):
+    def __init__(self, backbone, device=None, d_reduced: int = 100, image_size=224, beta=1,
+                 select_index=None, features_mean=None, features_cov=None,
+                 threshold=None, max_score=None, min_score=None,
+                 output_dir=None):
+        super().__init__(
+            backbone_name=backbone.type,
+            out_indices=(1, 2, 3),
+            device=device
+        )
+        self.image_size = image_size
+        self.d_reduced = d_reduced  # your RAM will thank you
+        self.epsilon = 0.04  # cov regularization
+        self.patch_lib = []
+        self.resize = torch.nn.AdaptiveAvgPool2d(56)
+        self.beta = beta
+        self.mean = features_mean
+        self.cov = features_cov
+        self.select_index = select_index
+        self.device = device
+        self.threshold = threshold
+        self.max_score = max_score
+        self.min_score = min_score
+        self.output_dir = output_dir
+
+    def __call__(self, x: tensor):
+        with torch.no_grad():
+            fmaps = []
+            for img in x:
+                feature_maps = self.feature_extractor(img[0].unsqueeze(0).to(self.device))
+                if self.resize is None:
+                    largest_fmap_size = feature_maps[0].shape[-2:]
+                    self.resize = torch.nn.AdaptiveAvgPool2d(largest_fmap_size)
+                resized_maps = [self.resize(fmap) for fmap in feature_maps]
+                fmap = torch.cat(resized_maps, 1)  # torch.Size([32, 1792, 56, 56])
+                fmaps.append(fmap)
+            fmaps = torch.cat(fmaps, dim=0)  # torch.Size([36, 1792, 56, 56])
+
+        # reduce
+        x_ = fmaps[:, self.select_index, ...] - self.mean.to(self.device)  # torch.Size([32, 550, 56, 56])
+
+        left = torch.einsum('abkl,bckl->ackl', x_, self.cov.to(self.device))   # torch.Size([32, 550, 56, 56])
+        s_map = torch.sqrt(torch.einsum('abkl,abkl->akl', left, x_))  # torch.Size([32, 56, 56])
+        score_map = torch.nn.functional.interpolate(
+            s_map.unsqueeze(0), size=(self.image_size, self.image_size), mode='bilinear'
+        )  # torch.Size([1, 32, 224, 224])
+
+        # # apply gaussian smoothing on the score map
+        # for i in range(score_map.shape[0]):
+        #     score_map[i] = gaussian_filter(score_map[i], sigma=4)
+
+        # Normalization
+        logger.info("2.6 Normalization")
+        scores = ((score_map - self.min_score) / (self.max_score - self.min_score)).squeeze() # (B, 224, 224) scores是均值化后的结果
+
+        for i in range(len(x)):
+            image = torch.tensor(x[i][0])
+            score = scores[i]
+            print(type(score))
+            print(score.shape)
+            img_p = x[i][2]
+            self.plot_fig(image, score.cpu().numpy(), self.threshold, img_p)
+
     def denormalization(self, x, mean=[0.335782, 0.335782, 0.335782], std=[0.256730, 0.256730, 0.256730]):
         mean = np.array(mean)
         std = np.array(std)
         x = (((x.numpy().transpose(1, 2, 0) * std) + mean) * 255.).astype(np.uint8)
+
         return x
+
     def plot_fig(self, test_img, scores, threshold, img_p):
         import matplotlib.pyplot as plt
         import matplotlib
@@ -153,259 +431,9 @@ class KNNExtractor(torch.nn.Module):
             }
             cb.set_label('Anomaly Score', fontdict=font)
 
-            dstPath = os.path.join("/ai/data/test", "pictures")
+            dstPath = os.path.join(self.output_dir, "pictures")
             os.makedirs(dstPath, exist_ok=True)
             ngtype = img_p.split("/")[-2]
             image_name = ngtype + "_" + img_p.split("/")[-1][:-4]+".png"
             fig_img.savefig(os.path.join(dstPath, image_name), dpi=100)
             plt.close()
-    def get_parameters(self, extra_params: dict = None) -> dict:
-        return {
-            "backbone_name": self.backbone_name,
-            "out_indices": self.out_indices,
-            **extra_params,
-        }
-
-
-@Registers.anomaly_models.register
-class PaDiM2(KNNExtractor):
-    def __init__(self, backbone, device=None, d_reduced: int = 100, total_dim=None, image_size=224, beta=1):
-        super().__init__(
-            backbone_name=backbone.type,
-            out_indices=(1, 2, 3),
-            device=device
-        )
-        self.image_size = 224
-        self.d_reduced = d_reduced  # your RAM will thank you
-        self.epsilon = 0.04  # cov regularization
-        self.patch_lib = []
-        self.resize = None
-
-    def fit(self, train_dataloader, output_dir=None):
-        # extract train set features 提取特征
-        train_feature_filepath = os.path.join(output_dir, 'features.pkl')  # 特征存放路径
-        if not os.path.exists(train_feature_filepath):  # 如果特征不存在
-            # 提取特征
-            logger.info("1.1 extract train set features")
-            for i, (image, mask, label, image_path) in enumerate(train_dataloader):
-                logger.info("extract feature iter {}/{}".format(i, len(train_dataloader)))
-                feature_maps = self(image)
-                if self.resize is None:
-                    largest_fmap_size = feature_maps[0].shape[-2:]
-                    self.resize = torch.nn.AdaptiveAvgPool2d(largest_fmap_size)
-                resized_maps = [self.resize(fmap) for fmap in feature_maps]
-                self.patch_lib.append(torch.cat(resized_maps, 1))  # self.patch_lib = [ torch.Size([32, 1792, 56, 56]), ...]
-            self.patch_lib = torch.cat(self.patch_lib, 0)   # 合并特征 torch.Size([240, 1792, 56, 56])
-
-            # random projection
-            if self.patch_lib.shape[1] > self.d_reduced:
-                logger.info(f"PaDiM: (randomly) reducing {self.patch_lib.shape[1]} dimensions to {self.d_reduced}.")
-                self.r_indices = torch.randperm(self.patch_lib.shape[1])[:self.d_reduced]   # 550
-                self.patch_lib_reduced = self.patch_lib[:, self.r_indices, ...]     # torch.Size([240, 550, 56, 56])
-            else:
-                logger.info(f"PaDiM: d_reduced is higher than the actual number of dimensions, copying self.patch_lib ...")
-                self.patch_lib_reduced = self.patch_lib
-
-            # calcs
-            self.means = torch.mean(self.patch_lib, dim=0, keepdim=True)    # torch.Size([1, 1792, 56, 56])
-            self.means_reduced = self.means[:, self.r_indices, ...]     # torch.Size([1, 550, 56, 56])
-            x_ = self.patch_lib_reduced - self.means_reduced    # torch.Size([240, 550, 56, 56])
-
-            # cov calc
-            self.E = torch.einsum(
-                'abkl,bckl->ackl',
-                x_.permute([1, 0, 2, 3]),  # transpose first two dims
-                x_,
-            ) * 1 / (self.patch_lib.shape[0] - 1)  # torch.Size([550, 550, 56, 56])
-            self.E += self.epsilon * torch.eye(self.d_reduced).unsqueeze(-1).unsqueeze(-1)  # torch.Size([550, 550, 1, 1])
-            self.E_inv = torch.linalg.inv(self.E.permute([2, 3, 0, 1])).permute([2, 3, 0, 1])   # torch.Size([550, 550, 56, 56])
-
-            # save learned distribution
-            logger.info("save learned distribution")
-            train_outputs = [self.means_reduced, self.E_inv, self.r_indices]
-            with open(train_feature_filepath, 'wb') as f:
-                pickle.dump(train_outputs, f)
-        else:
-            logger.info('load train set feature from: %s' % train_feature_filepath)
-            with open(train_feature_filepath, 'rb') as f:
-                train_outputs = pickle.load(f)
-
-        self.train_output = train_outputs
-
-    def predict(self, sample):
-        feature_maps = self(sample)
-        resized_maps = [self.resize(fmap) for fmap in feature_maps]
-        fmap = torch.cat(resized_maps, 1)   # torch.Size([32, 1792, 56, 56])
-
-        # reduce
-        x_ = fmap[:, self.r_indices, ...] - self.means_reduced  # torch.Size([32, 550, 56, 56])
-
-        left = torch.einsum('abkl,bckl->ackl', x_, self.E_inv)  # torch.Size([32, 550, 56, 56])
-        s_map = torch.sqrt(torch.einsum('abkl,abkl->akl', left, x_))    # torch.Size([32, 56, 56])
-        scaled_s_map = torch.nn.functional.interpolate(
-            s_map.unsqueeze(0), size=(self.image_size, self.image_size), mode='bilinear'
-        )   # torch.Size([1, 32, 224, 224])
-
-        return torch.max(s_map), scaled_s_map[0, ...]
-        # return torch.max(s_map.reshape(s_map.shape[0],-1), dim=1)[0], scaled_s_map[0, ...]
-
-    def get_parameters(self):
-        return super().get_parameters({
-            "d_reduced": self.d_reduced,
-            "epsilon": self.epsilon,
-        })
-
-
-# class SPADE(KNNExtractor):
-#     def __init__(
-#             self,
-#             k: int = 5,
-#             backbone_name: str = "resnet18",
-#     ):
-#         super().__init__(
-#             backbone_name=backbone_name,
-#             out_indices=(1, 2, 3, -1),
-#             pool_last=True,
-#         )
-#         self.k = k
-#         self.image_size = 224
-#         self.z_lib = []
-#         self.feature_maps = []
-#         self.threshold_z = None
-#         self.threshold_fmaps = None
-#         self.blur = GaussianBlur(4)
-#
-#     def fit(self, train_dl):
-#         for sample, _ in tqdm(train_dl, **get_tqdm_params()):
-#             feature_maps, z = self(sample)
-#
-#             # z vector
-#             self.z_lib.append(z)
-#
-#             # feature maps
-#             if len(self.feature_maps) == 0:
-#                 for fmap in feature_maps:
-#                     self.feature_maps.append([fmap])
-#             else:
-#                 for idx, fmap in enumerate(feature_maps):
-#                     self.feature_maps[idx].append(fmap)
-#
-#         self.z_lib = torch.vstack(self.z_lib)
-#
-#         for idx, fmap in enumerate(self.feature_maps):
-#             self.feature_maps[idx] = torch.vstack(fmap)
-#
-#     def predict(self, sample):
-#         feature_maps, z = self(sample)
-#
-#         distances = torch.linalg.norm(self.z_lib - z, dim=1)
-#         values, indices = torch.topk(distances.squeeze(), self.k, largest=False)
-#
-#         z_score = values.mean()
-#
-#         # Build the feature gallery out of the k nearest neighbours.
-#         # The authors migh have concatenated all features maps first, then check the minimum norm per pixel.
-#         # Here, we check for the minimum norm first, then concatenate (sum) in the final layer.
-#         scaled_s_map = torch.zeros(1, 1, self.image_size, self.image_size)
-#         for idx, fmap in enumerate(feature_maps):
-#             nearest_fmaps = torch.index_select(self.feature_maps[idx], 0, indices)
-#             # min() because kappa=1 in the paper
-#             s_map, _ = torch.min(torch.linalg.norm(nearest_fmaps - fmap, dim=1), 0, keepdims=True)
-#             scaled_s_map += torch.nn.functional.interpolate(
-#                 s_map.unsqueeze(0), size=(self.image_size, self.image_size), mode='bilinear'
-#             )
-#
-#         scaled_s_map = self.blur(scaled_s_map)
-#
-#         return z_score, scaled_s_map
-#
-#     def get_parameters(self):
-#         return super().get_parameters({
-#             "k": self.k,
-#         })
-
-
-
-# class PatchCore(KNNExtractor):
-#     def __init__(
-#             self,
-#             f_coreset: float = 0.01,  # fraction the number of training samples
-#             backbone_name: str = "resnet18",
-#             coreset_eps: float = 0.90,  # sparse projection parameter
-#     ):
-#         super().__init__(
-#             backbone_name=backbone_name,
-#             out_indices=(2, 3),
-#         )
-#         self.f_coreset = f_coreset
-#         self.coreset_eps = coreset_eps
-#         self.image_size = 224
-#         self.average = torch.nn.AvgPool2d(3, stride=1)
-#         self.blur = GaussianBlur(4)
-#         self.n_reweight = 3
-#
-#         self.patch_lib = []
-#         self.resize = None
-#
-#     def fit(self, train_dl):
-#         for sample, _ in tqdm(train_dl, **get_tqdm_params()):
-#             feature_maps = self(sample)
-#
-#             if self.resize is None:
-#                 largest_fmap_size = feature_maps[0].shape[-2:]
-#                 self.resize = torch.nn.AdaptiveAvgPool2d(largest_fmap_size)
-#             resized_maps = [self.resize(self.average(fmap)) for fmap in feature_maps]
-#             patch = torch.cat(resized_maps, 1)
-#             patch = patch.reshape(patch.shape[1], -1).T
-#
-#             self.patch_lib.append(patch)
-#
-#         self.patch_lib = torch.cat(self.patch_lib, 0)
-#
-#         if self.f_coreset < 1:
-#             self.coreset_idx = get_coreset_idx_randomp(
-#                 self.patch_lib,
-#                 n=int(self.f_coreset * self.patch_lib.shape[0]),
-#                 eps=self.coreset_eps,
-#             )
-#             self.patch_lib = self.patch_lib[self.coreset_idx]
-#
-#     def predict(self, sample):
-#         feature_maps = self(sample)
-#         resized_maps = [self.resize(self.average(fmap)) for fmap in feature_maps]
-#         patch = torch.cat(resized_maps, 1)
-#         patch = patch.reshape(patch.shape[1], -1).T
-#
-#         dist = torch.cdist(patch, self.patch_lib)
-#         min_val, min_idx = torch.min(dist, dim=1)
-#         s_idx = torch.argmax(min_val)
-#         s_star = torch.max(min_val)
-#
-#         # reweighting
-#         m_test = patch[s_idx].unsqueeze(0)  # anomalous patch
-#         m_star = self.patch_lib[min_idx[s_idx]].unsqueeze(0)  # closest neighbour
-#         w_dist = torch.cdist(m_star, self.patch_lib)  # find knn to m_star pt.1
-#         _, nn_idx = torch.topk(w_dist, k=self.n_reweight, largest=False)  # pt.2
-#         # equation 7 from the paper
-#         m_star_knn = torch.linalg.norm(m_test - self.patch_lib[nn_idx[0, 1:]], dim=1)
-#         # Softmax normalization trick as in transformers.
-#         # As the patch vectors grow larger, their norm might differ a lot.
-#         # exp(norm) can give infinities.
-#         D = torch.sqrt(torch.tensor(patch.shape[1]))
-#         w = 1 - (torch.exp(s_star / D) / (torch.sum(torch.exp(m_star_knn / D))))
-#         s = w * s_star
-#
-#         # segmentation map
-#         s_map = min_val.view(1, 1, *feature_maps[0].shape[-2:])
-#         s_map = torch.nn.functional.interpolate(
-#             s_map, size=(self.image_size, self.image_size), mode='bilinear'
-#         )
-#         s_map = self.blur(s_map)
-#
-#         return s, s_map
-#
-#     def get_parameters(self):
-#         return super().get_parameters({
-#             "f_coreset": self.f_coreset,
-#             "n_reweight": self.n_reweight,
-#         })

@@ -1,0 +1,31 @@
+{
+    "name": "demo",
+    "type": "anomaly",
+    "fullName": "anomaly-PaDiM2_L-MVTecDataset-demo-linux",
+
+    "trainer": {
+        "type": "AnomalyDemo2",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/AnomalyDetection/PaDim2/test",
+        "ckpt":"/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/AnomalyDetection/PaDim2/test/train/features.pkl",
+        "threshold": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/AnomalyDetection/PaDim2/test/train/threshold.txt"
+    },
+    "model": {
+        "type": "PaDiM2_demo",
+        "backbone": {
+            "type": "wide_resnet50_2"
+        },
+        "kwargs": {
+            "d_reduced": 550,
+            "image_size": 224
+        }
+    },
+    "images": {
+        "type": "images",
+        "image_ext": [".jpg", ".jpeg", ".bmp", ".png"],
+        "path": "/ai/data/AIPretrained/AnomalyDetection/images",
+        "resize": 224,
+        "cropsize": 224,
+        "mean": [0.335782, 0.335782, 0.335782],
+        "std": [0.256730, 0.256730, 0.256730]
+    }
+}

@@ -4,7 +4,7 @@
     "fullName": "anomaly-PaDiM2_L-MVTecDataset-trainval-linux",
 
     "trainer": {
-        "type": "AnomalyTrainer",
+        "type": "AnomalyTrainer2",
         "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/AnomalyDetection/PaDim2/test"
     },
     "model": {
@@ -55,7 +55,7 @@
         },
         "kwargs": {
             "num_workers": 0,
-            "batch_size": 1
+            "batch_size": 18
         }
     }
 }
