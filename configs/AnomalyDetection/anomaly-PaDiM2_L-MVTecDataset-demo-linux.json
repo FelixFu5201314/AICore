@@ -15,7 +15,7 @@
             "type": "wide_resnet50_2"
         },
         "kwargs": {
-            "d_reduced": 550,
+            "d_reduced": 100,
             "image_size": 224
         }
     },

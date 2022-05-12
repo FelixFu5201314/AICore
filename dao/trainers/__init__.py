@@ -10,5 +10,6 @@
 from .trainerCls import ClsTrainer, ClsEval, ClsDemo, ClsExport
 # 异常检测
 from .trainerAnomaly import AnomalyTrainer, AnomalyDemo, AnomalyExport
+from .trainerAnomaly import AnomalyTrainer2, AnomalyDemo2, AnomalyExport2
 # 分割
 from .trainerSeg import SegTrainer, SegEval, SegExport, SegDemo

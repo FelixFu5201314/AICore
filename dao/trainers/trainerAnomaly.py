@@ -674,14 +674,14 @@ class AnomalyExport2:
                         shutil.rmtree(self.output_dir)
                     except Exception as e:
                         logger.info("global rank {} can't remove tree {}".format(get_rank(), self.output_dir))
-        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"export_log.txt",
+        setup_logger(self.output_dir, distributed_rank=get_rank(), filename=f"demo_log.txt",
                      mode="a")  # 设置只有rank=0输出日志，并重定向
 
         logger.warning("Anomaly Detection only supported Single Machine and Single GPU !!!!")
-        logger.info("....... Export Before, Setting something ...... ")
+        logger.info("....... Demo Before, Setting something ...... ")
 
         logger.info("1. Logging Setting ...")
-        logger.info(f"create log file {self.output_dir}/export_log.txt")  # log txt
+        logger.info(f"create log file {self.output_dir}/demo_log.txt")  # log txt
         self.exp.pprint(pformat='json') if self.parser.detail else None  # 根据parser.detail来决定日志输出的详细
         with open(os.path.join(self.output_dir, 'config.json'), 'w') as f:  # 将配置文件写到self.output_dir
             json.dump(dict(self.exp), f)
@@ -689,14 +689,29 @@ class AnomalyExport2:
         self.tblogger = SummaryWriter(self.output_dir) if get_rank() == 0 else None  # log tensorboard
 
         logger.info("2. Model Setting ...")
+        self.device = torch.device("cuda:{}".format(self.parser.gpu))
         # 读取训练好的模型
         with open(self.exp.trainer.ckpt, 'rb') as f:
             train_output = pickle.load(f)
-        self.device = torch.device("cpu")
+        # 读取阈值信息
+        with open(self.exp.trainer.threshold, 'r') as threshold_file:
+            threshold = eval(threshold_file.readline())
+            logger.info("threshold is {}".format(str(threshold)))
+            max_score = eval(threshold_file.readline())
+            logger.info("max_score is {}".format(str(max_score)))
+            min_score = eval(threshold_file.readline())
+            logger.info("min_score is {}".format(str(min_score)))
+            self.threshold = threshold
         self.model = Registers.anomaly_models.get(self.exp.model.type)(
             self.exp.model.backbone,
             device=self.device,
             select_index=train_output[2],
+            features_mean=train_output[0],
+            features_cov=train_output[1],
+            threshold=threshold,
+            max_score=max_score,
+            min_score=min_score,
+            output_dir=self.output_dir,
             **self.exp.model.kwargs)  # get model from register
 
     def run(self):

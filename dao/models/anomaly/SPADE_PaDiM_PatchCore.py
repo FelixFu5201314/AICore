@@ -125,6 +125,7 @@ class PaDiM2(KNNExtractor):
                 x_.permute([1, 0, 2, 3]),  # transpose first two dims
                 x_,
             ) * 1 / (self.patch_lib.shape[0] - 1)  # torch.Size([550, 550, 56, 56])
+
             self.E += self.epsilon * torch.eye(self.d_reduced).unsqueeze(-1).unsqueeze(-1)  # torch.Size([550, 550, 1, 1])
             self.E_inv = torch.linalg.inv(self.E.permute([2, 3, 0, 1])).permute([2, 3, 0, 1])   # torch.Size([550, 550, 56, 56])
 
@@ -355,150 +356,100 @@ class PaDiM2_demo(torch.nn.Module):
 
         # reduce
         x_ = fmaps[:, self.select_index, ...] - self.mean.to(self.device)  # torch.Size([32, 550, 56, 56])
-
-        left = torch.einsum('abkl,bckl->ackl', x_, self.cov.to(self.device))   # torch.Size([32, 550, 56, 56])
-        s_map = torch.sqrt(torch.einsum('abkl,abkl->akl', left, x_))  # torch.Size([32, 56, 56])
-        score_map = torch.nn.functional.interpolate(
-            s_map.unsqueeze(0), size=(self.image_size, self.image_size), mode='bilinear'
-        )  # torch.Size([1, 32, 224, 224])
+        # left = torch.einsum('abkl,bckl->ackl', x_, self.cov.to(self.device))  # torch.Size([32, 550, 56, 56])
+        left = torch.sum(x_.unsqueeze(1) * self.cov.to(self.device).unsqueeze(0), dim=2)
+        # s_map = torch.sqrt(torch.einsum('abkl,abkl->akl', left, x_))  # torch.Size([32, 56, 56])
+        s_map = torch.sqrt(torch.sum(x_ * left, dim=1))
+        # score_map = torch.nn.functional.interpolate(
+        #     s_map.unsqueeze(0), size=(self.image_size, self.image_size), mode='bilinear'
+        # )  # torch.Size([1, 32, 224, 224])
+        score_map = torch.nn.Upsample(scale_factor=4, mode='bilinear')(s_map.unsqueeze(0)).squeeze(0)
 
         # Normalization
-        logger.info("2.6 Normalization")
-        scores = ((score_map - self.min_score) / (self.max_score - self.min_score)).squeeze() # (B, 224, 224) scores是均值化后的结果
-
+        # logger.info("2.6 Normalization")
+        scores = ((score_map - self.min_score) / (
+                self.max_score - self.min_score)).squeeze()  # (B, 224, 224) scores是均值化后的结果
         return scores
+
+        # # reduce
+        # x_ = fmaps[:, self.select_index, ...] - self.mean.to(self.device)  # torch.Size([32, 550, 56, 56])
+        #
+        # left = torch.einsum('abkl,bckl->ackl', x_, self.cov.to(self.device))   # torch.Size([32, 550, 56, 56])
+        # s_map = torch.sqrt(torch.einsum('abkl,abkl->akl', left, x_))  # torch.Size([32, 56, 56])
+        # score_map = torch.nn.functional.interpolate(
+        #     s_map.unsqueeze(0), size=(self.image_size, self.image_size), mode='bilinear'
+        # )  # torch.Size([1, 32, 224, 224])
+        #
+        # # Normalization
+        # logger.info("2.6 Normalization")
+        # scores = ((score_map - self.min_score) / (self.max_score - self.min_score)).squeeze() # (B, 224, 224) scores是均值化后的结果
+        #
+        # return scores
 
 
 @Registers.anomaly_models.register
-class PaDiM2_export(KNNExtractor):
-    def __init__(self, backbone, device=None, d_reduced: int = 100, image_size=224, beta=1,
+class PaDiM2_export(torch.nn.Module):
+    def __init__(self,
+                 backbone, device=None, pool_last=False,
+                 image_size=224, feature_size=56,
                  select_index=None, features_mean=None, features_cov=None,
                  threshold=None, max_score=None, min_score=None,
-                 output_dir=None):
-        super().__init__(
-            backbone_name=backbone.type,
+                 output_dir=None, **kwargs):
+        super(PaDiM2_export, self).__init__()
+        # 定义网络结构
+        self.feature_extractor = timm.create_model(
+            backbone.type,
             out_indices=(1, 2, 3),
-            device=device
+            features_only=True,
+            pretrained=True,
+            exportable=True
         )
+        for param in self.feature_extractor.parameters():
+            param.requires_grad = False
+        self.feature_extractor.to(device)
+        self.feature_extractor.eval()
+
+        self.pool = torch.nn.AdaptiveAvgPool2d(1) if pool_last else None
+        self.device = device
+        self.resize = torch.nn.AdaptiveAvgPool2d(feature_size)
+
+        # 定义其他权重信息
         self.image_size = image_size
-        self.d_reduced = d_reduced  # your RAM will thank you
-        self.epsilon = 0.04  # cov regularization
         self.patch_lib = []
-        self.resize = torch.nn.AdaptiveAvgPool2d(56)
-        self.beta = beta
+        # features.pkl
         self.mean = features_mean
         self.cov = features_cov
         self.select_index = select_index
-        self.device = device
+        # threshold.txt
         self.threshold = threshold
         self.max_score = max_score
         self.min_score = min_score
+
         self.output_dir = output_dir
 
-    def __call__(self, x: tensor):
+    def forward(self, x):
         with torch.no_grad():
-            fmaps = []
-            for img in x:
-                feature_maps = self.feature_extractor(img[0].unsqueeze(0).to(self.device))
-                if self.resize is None:
-                    largest_fmap_size = feature_maps[0].shape[-2:]
-                    self.resize = torch.nn.AdaptiveAvgPool2d(largest_fmap_size)
-                resized_maps = [self.resize(fmap) for fmap in feature_maps]
-                fmap = torch.cat(resized_maps, 1)  # torch.Size([32, 1792, 56, 56])
-                fmaps.append(fmap)
-            fmaps = torch.cat(fmaps, dim=0)  # torch.Size([36, 1792, 56, 56])
+            feature_maps = self.feature_extractor(x.to(self.device))
+            resized_maps1 = feature_maps[0]
+            resized_maps2 = torch.nn.Upsample(scale_factor=2, mode='nearest')(feature_maps[1])
+            resized_maps3 = torch.nn.Upsample(scale_factor=4, mode='nearest')(feature_maps[2])
+        fmaps = torch.cat((resized_maps1, resized_maps2, resized_maps3), 1)  # torch.Size([32, 1792, 56, 56])
 
         # reduce
         x_ = fmaps[:, self.select_index, ...] - self.mean.to(self.device)  # torch.Size([32, 550, 56, 56])
-
-        left = torch.einsum('abkl,bckl->ackl', x_, self.cov.to(self.device))   # torch.Size([32, 550, 56, 56])
-        s_map = torch.sqrt(torch.einsum('abkl,abkl->akl', left, x_))  # torch.Size([32, 56, 56])
-        score_map = torch.nn.functional.interpolate(
-            s_map.unsqueeze(0), size=(self.image_size, self.image_size), mode='bilinear'
-        )  # torch.Size([1, 32, 224, 224])
-
-        # # apply gaussian smoothing on the score map
-        # for i in range(score_map.shape[0]):
-        #     score_map[i] = gaussian_filter(score_map[i], sigma=4)
+        # left = torch.einsum('abkl,bckl->ackl', x_, self.cov.to(self.device))  # torch.Size([32, 550, 56, 56])
+        left = torch.sum(x_.unsqueeze(1) * self.cov.to(self.device).unsqueeze(0), dim=2)
+        # s_map = torch.sqrt(torch.einsum('abkl,abkl->akl', left, x_))  # torch.Size([32, 56, 56])
+        s_map = torch.sqrt(torch.sum(x_ * left, dim=1))
+        # score_map = torch.nn.functional.interpolate(
+        #     s_map.unsqueeze(0), size=(self.image_size, self.image_size), mode='bilinear'
+        # )  # torch.Size([1, 32, 224, 224])
+        score_map = torch.nn.Upsample(scale_factor=4, mode='bilinear')(s_map.unsqueeze(0)).squeeze(0)
 
         # Normalization
-        logger.info("2.6 Normalization")
-        scores = ((score_map - self.min_score) / (self.max_score - self.min_score)).squeeze() # (B, 224, 224) scores是均值化后的结果
+        # logger.info("2.6 Normalization")
+        scores = ((score_map - self.min_score) / (
+                self.max_score - self.min_score)).squeeze()  # (B, 224, 224) scores是均值化后的结果
+        return scores
 
-        for i in range(len(x)):
-            image = torch.tensor(x[i][0])
-            score = scores[i]
-            print(type(score))
-            print(score.shape)
-            img_p = x[i][2]
-            self.plot_fig(image, score.cpu().numpy(), self.threshold, img_p)
 
-    def denormalization(self, x, mean=[0.335782, 0.335782, 0.335782], std=[0.256730, 0.256730, 0.256730]):
-        mean = np.array(mean)
-        std = np.array(std)
-        x = (((x.numpy().transpose(1, 2, 0) * std) + mean) * 255.).astype(np.uint8)
-
-        return x
-
-    def plot_fig(self, test_img, scores, threshold, img_p):
-        import matplotlib.pyplot as plt
-        import matplotlib
-        from skimage import morphology
-        from skimage.segmentation import mark_boundaries
-
-        vmax = scores.max() * 255.
-        vmin = scores.min() * 255.
-
-        img = self.denormalization(test_img)
-        heat_map = scores * 255
-        mask = scores
-        threshold = np.median(scores) if threshold is None else threshold
-
-        mask[mask > threshold] = 1
-        mask[mask <= threshold] = 0
-        kernel = morphology.disk(4)
-        mask = morphology.opening(mask, kernel)
-        mask *= 255
-        vis_img = mark_boundaries(img, mask, color=(1, 0, 0), mode='thick')
-        fig_img, ax_img = plt.subplots(1, 4, figsize=(12, 3))
-        fig_img.subplots_adjust(right=0.9)
-        norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
-        for ax_i in ax_img:
-            ax_i.axes.xaxis.set_visible(False)
-            ax_i.axes.yaxis.set_visible(False)
-
-            ax_img[0].imshow(img)
-            ax_img[0].title.set_text('Image')
-
-            ax = ax_img[1].imshow(heat_map, cmap='jet', norm=norm)
-            ax_img[1].imshow(img, cmap='gray', interpolation='none')
-            ax_img[1].imshow(heat_map, cmap='jet', alpha=0.5, interpolation='none')
-            ax_img[1].title.set_text('Predicted heat map')
-
-            ax_img[2].imshow(mask, cmap='gray')
-            ax_img[2].title.set_text('Predicted mask')
-
-            ax_img[3].imshow(vis_img)
-            ax_img[3].title.set_text('Segmentation result')
-            left = 0.92
-            bottom = 0.15
-            width = 0.015
-            height = 1 - 2 * bottom
-            rect = [left, bottom, width, height]
-            cbar_ax = fig_img.add_axes(rect)
-            cb = plt.colorbar(ax, shrink=0.6, cax=cbar_ax, fraction=0.046)
-            cb.ax.tick_params(labelsize=8)
-            font = {
-                'family': 'serif',
-                'color': 'black',
-                'weight': 'normal',
-                'size': 8,
-            }
-            cb.set_label('Anomaly Score', fontdict=font)
-
-            dstPath = os.path.join(self.output_dir, "pictures")
-            os.makedirs(dstPath, exist_ok=True)
-            ngtype = img_p.split("/")[-2]
-            image_name = ngtype + "_" + img_p.split("/")[-1][:-4]+".png"
-            fig_img.savefig(os.path.join(dstPath, image_name), dpi=100)
-            plt.close()
