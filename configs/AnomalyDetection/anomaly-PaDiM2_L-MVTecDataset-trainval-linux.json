@@ -15,7 +15,9 @@
         "kwargs": {
             "d_reduced": 100,
             "image_size": 224,
-            "beta": 1
+            "beta": 1,
+            "feature_size": 56,
+            "pool_last": false
         }
     },
     "dataloader": {

@@ -27,6 +27,7 @@ from dao.dataloaders.augments import get_transformer
 from dao.utils import get_rank, get_local_rank, get_world_size  # 导入分布式库
 
 
+# -------------- PaDiM 实现方式1：https://github.com/AICoreRef/PaDiM-Anomaly-Detection-Localization-master
 @Registers.trainers.register
 class AnomalyTrainer:
     def __init__(self, exp, parser):
@@ -390,6 +391,7 @@ class AnomalyExport:
                           **self.exp.onnx.kwargs)
 
 
+# -----PaDiM 实现方式2：https://github.com/AICoreRef/ind_knn_ad
 @Registers.trainers.register
 class AnomalyTrainer2:
     def __init__(self, exp, parser):
