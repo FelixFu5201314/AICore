@@ -1,0 +1,145 @@
+{
+    "name": "train",
+    "type": "det",
+    "fullName": "det-YOLOX_CSPDarknet-sgdWarmupBiasBnWeight-DetDataset-crossEntropyLoss-warmCosLr-DetEvaluator-trainval-linux",
+
+    "trainer": {
+        "type": "DetTrainer",
+        "log_dir": "/root/code/DAO/saved",
+        "log_per_iter": 10,
+        "eval_interval": 1,
+
+        "warmup_epochs": 5,
+        "no_aug_epochs": 15,
+        "max_epochs": 300,
+
+        "ckpt": "/root/code/DAO/saved/det-YOLOX(CSPDarknet)-sgd_warmup_bias_bn_weight-DetDataset(COCO)-CrossEntropyLoss-warm_cos_lr-DetEvaluator-trainval-linux/01-27_16-21/last_epoch_ckpt.pth",
+        "resume": false,
+
+        "amp": true,
+        "occupy": false,
+        "ema": true,
+
+        "multiscale_range": 5
+    },
+    "model": {
+        "type": "YOLOX",
+        "summary_size": [3,640,640],
+        "kwargs": {
+            "backbone": {
+                "depth": 1.0,
+                "width": 1.0,
+                "in_features": ["dark3", "dark4", "dark5"],
+                "in_channels": [256, 512, 1024],
+                "depthwise": false,
+                "act": "silu"
+            },
+            "head": {
+                "num_classes": 80,
+                "width": 1.0,
+                "strides": [8, 16, 32],
+                "in_channels": [256, 512, 1024],
+                "act": "silu",
+                "depthwise": false
+            }
+        }
+    },
+    "optimizer": {
+        "type": "sgd_warmup_bias_bn_weight",
+        "kwargs": {
+            "lr": 0.01,
+            "weight_decay": 1e-4,
+            "momentum": 0.9,
+            "warmup_lr": 0,
+            "warmup_epoch": 5
+        }
+    },
+    "dataloader": {
+        "type": "DetDataloaderTrain",
+        "dataset": {
+            "dataset1": {
+                "type": "DetDataset",
+                "kwargs": {
+                    "data_dir": "/root/data/DAO/COCO",
+                    "image_set": "train2017",
+                    "in_channels": 3,
+                    "input_size": [640, 640],
+                    "cache": false,
+                    "image_suffix":".jpg"
+	            },
+                "transforms": {
+                "kwargs": {
+                    "max_labels": 50,
+                    "flip_prob": 0.5,
+                    "hsv_prob": 1.0
+                }
+            }
+            },
+            "dataset2": {
+                "type": "MosaicDetection",
+                "kwargs": {
+                    "mosaic": true,
+                    "img_size": [640, 640],
+                    "degrees": 10.0,
+                    "translate": 0.1,
+                    "mosaic_scale": [0.1, 2],
+                    "mixup_scale": [0.5, 1.5],
+                    "shear":2.0,
+                    "enable_mixup": true,
+                    "mosaic_prob": 1.0,
+                    "mixup_prob": 1.0
+                },
+                "transforms": {
+                    "kwargs": {
+                        "max_labels": 50,
+                        "flip_prob": 0.5,
+                        "hsv_prob": 1.0
+            }
+        }
+            }
+        },
+        "kwargs": {
+            "num_workers": 8,
+            "batch_size": 16
+        }
+    },
+    "lr_scheduler": {
+        "type": "warm_cos_lr",
+        "kwargs": {
+            "warmup_epochs": 5,
+            "warmup_lr_start": 0
+        }
+    },
+    "evaluator": {
+        "type": "DetEvaluator",
+        "dataloader": {
+            "type": "DetDataloaderEval",
+            "dataset": {
+                "type": "DetDataset",
+                "kwargs": {
+                    "data_dir": "/root/data/DAO/COCO",
+                    "image_set": "val2017",
+                    "in_channels": 3,
+                    "input_size": [640, 640],
+                    "cache": false,
+                    "image_suffix":".jpg"
+	            },
+                "transforms": {
+                    "kwargs": {
+                         "swap":[2, 0, 1],
+                         "legacy": false
+                    }
+            }
+            },
+            "kwargs": {
+                "num_workers": 8,
+                "batch_size": 16
+            }
+        },
+        "kwargs": {
+            "img_size": [640, 640],
+            "confthre": 0.5,
+            "nmsthre": 0.5
+        }
+    }
+}

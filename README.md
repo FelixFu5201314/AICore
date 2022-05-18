@@ -137,6 +137,9 @@ pip install dotmap loguru albumentations torchcam timm torchsummary scikit-image
 ```
 
 ## 四、如何使用
+
+以下只举例，分别列出了分类、分割、目标检测、异常检测中一个模型的train、evaluate、demo、export过程。
+
 ### 1. ImageClassification
 
 ```
@@ -199,6 +202,8 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 
 ### 3. ObjectDetection
 
+TODO
+
 ```
 1. trainval
 # 单机单卡
@@ -232,28 +237,13 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 ```
 1. trainval
 # 单机单卡
-CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
+CUDA_VISIBLE_DEVICES=0  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/AnomalyDetection/anomaly-PaDiM2_L-MVTecDataset-trainval-linux.json
 
-# 单机多卡
-CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
-
-# 多机多卡
-# use master ip 10.1.130.111
-CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
-CUDA_VISIBLE_DEVICES=0,1  NCCL_SOCKET_IFNAME=eth0 NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO  python main.py  --dist-url 'tcp://10.1.130.111:803' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
-
-# use docker ip 172.17.0.2
-CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 0 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
-CUDA_VISIBLE_DEVICES=0,1  python main.py  --dist-url 'tcp://172.17.0.2:1234' --dist-backend 'nccl' --num_machines 2 --machine_rank 1 --devices 2 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-sgdWarmupBiasBnWeight-clsDataloader-crossEntropyLoss-warmCosLr-clsEvaluator-gpus-trainval-linux.json
-
-2. eval
-CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-ClsDataloader-ClsEvaluator-eval-linux.json
-
-3. demo
-CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-demo-linux.json
+2. demo
+CUDA_VISIBLE_DEVICES=0  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/AnomalyDetection/anomaly-PaDiM2_L-MVTecDataset-demo-linux.json
 
 4. export
-CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/ImageClassification/cls-efficientnetb0-export-linux.json
+CUDA_VISIBLE_DEVICES=0  python main.py --num_machines 1 --machine_rank 0 --devices 1 -c /ai/AICore/configs/AnomalyDetection/anomaly-PaDiM2_L-MVTecDataset-export-linux.json
 
 ```
 
@@ -301,17 +291,13 @@ CUDA_VISIBLE_DEVICES=0,1  python main.py --num_machines 1 --machine_rank 0 --dev
 | DeepLabV3Plus  | resnet50 | 0.76                 | 未测                  |      |
 | DeepLabV3Plus2 | resnet50 | 0.75                 | 未测                  |      |
 
-
 ### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)
-    - https://github.com/Megvii-BaseDetection/YOLOX
-    - https://zhuanlan.zhihu.com/p/391396921
-    - YOLOX课程: https://edu.51cto.com/center/course/lesson/index?id=774242
-    - FPN: https://cloud.tencent.com/developer/article/1546594
-    - PAFPN: https://zhuanlan.zhihu.com/p/397020975
-    - YOLOX结构图: https://blog.csdn.net/nan355655600/article/details/119329727
+
+- YOLOX [code ref](https://github.com/Megvii-BaseDetection/YOLOX)
 
 ### 5. AnomalyDetection:[notes](notes/AnomalyDetection/README.md)
-- PaDim [code ref](https://github.com/AICoreRef/PaDiM-Anomaly-Detection-Localization-master)
+- PaDim [code ref](https://github.com/AICoreRef/PaDiM-Anomaly-Detection-Localization-master) 
+- PaDiM2 [code ref](https://github.com/AICoreRef/ind_knn_ad)
 
 ## 六、组件说明
 

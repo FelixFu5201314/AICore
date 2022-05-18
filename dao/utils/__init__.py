@@ -62,3 +62,14 @@ from .ema import EMA, ModelEMA, is_parallel
 from .visualize import denormalization  # 反归一化
 from .palette import get_palette, colorize_mask  # 分割可视化
 
+# 11.YOLOX 目标检测boxes.py文件定义的同居
+from .boxes import (
+    filter_box,
+    postprocess,
+    bboxes_iou,
+    matrix_iou,
+    adjust_box_anns,
+    xyxy2xywh,
+    xyxy2cxcywh,
+)
+

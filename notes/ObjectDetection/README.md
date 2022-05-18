@@ -1,0 +1,5 @@
+- https://zhuanlan.zhihu.com/p/391396921
+- YOLOX课程: https://edu.51cto.com/center/course/lesson/index?id=774242
+- FPN: https://cloud.tencent.com/developer/article/1546594
+- PAFPN: https://zhuanlan.zhihu.com/p/397020975
+- YOLOX结构图: https://blog.csdn.net/nan355655600/article/details/119329727

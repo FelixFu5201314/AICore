@@ -7,3 +7,5 @@
 from .ClsDataset import ClsDataset
 from .MVTecDataset import MVTecDataset
 from .SegDataset import SegDataset
+from .DetDataset import DetDataset, MosaicDetection
+
