@@ -9,6 +9,7 @@ import os
 import numpy as np
 from PIL import Image
 from loguru import logger
+import cv2
 
 import torch
 from torch.utils.data import Dataset
@@ -77,8 +78,8 @@ class MVTecDataset(Dataset):
             logger.warning("MVTecDataset not supported cache !")
 
         # set transforms
-        self.transform_x = T.Compose([T.Resize(self.resize, Image.ANTIALIAS),
-                                      T.CenterCrop(self.cropsize),
+        self.transform_x = T.Compose([#T.Resize(self.resize, Image.ANTIALIAS),
+                                      #T.CenterCrop(self.cropsize),
                                       T.ToTensor(),
                                       T.Normalize(mean=self.mean,  # 0.485, 0.456, 0.406
                                                   std=self.std)])  # 0.229, 0.224, 0.225
@@ -90,8 +91,13 @@ class MVTecDataset(Dataset):
         x, y, mask = self.x[idx], self.y[idx], self.mask[idx]  # x存放图片的路径，y标志此图片是否是good（0），mask存放mask图片路径
 
         image = Image.open(x).convert('RGB')
-        image = self.transform_x(image)
+        # 方式1，使用PIL中的方法resize
+        # image = self.transform_x(image)
 
+        # 方式2，使用cv2中的方法resize
+        image = np.asarray(image)
+        image = cv2.resize(image, (self.resize, self.resize), interpolation=cv2.INTER_LINEAR)
+        image = self.transform_x(image)
         if y == 0:
             mask = torch.zeros([1, self.cropsize, self.cropsize])
         else:

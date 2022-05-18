@@ -12,6 +12,7 @@ import shutil
 import json
 import pickle
 from PIL import Image
+import cv2
 from loguru import logger
 
 import onnx
@@ -545,13 +546,24 @@ class AnomalyDemo2:
         # 存放所有测试图片路径
         all_paths = [os.path.join(self.exp.images.path, p) for p in os.listdir(self.exp.images.path) if self._img_ok(p)]
         self.images = []
-        transform_x = T.Compose([T.Resize(self.exp.images.resize, Image.ANTIALIAS),
-                                 T.CenterCrop(self.exp.images.cropsize),
+        transform_x = T.Compose([#T.Resize(self.exp.images.resize, Image.ANTIALIAS),
+                                 #T.CenterCrop(self.exp.images.cropsize),
                                  T.ToTensor(),
                                  T.Normalize(mean=self.exp.images.mean,
                                              std=self.exp.images.std)])
         for img_p in sorted(all_paths):
-            image = transform_x(Image.open(img_p).convert('RGB'))
+            # 方式1 使用pillow resize
+            # image = transform_x(Image.open(img_p).convert('RGB'))
+
+            # 方式2 使用opencv reisze
+            image = Image.open(img_p).convert('RGB')
+            image = np.asarray(image)
+            image = cv2.resize(
+                image,
+                (self.exp.model.kwargs.image_size, self.exp.model.kwargs.image_size),
+                interpolation=cv2.INTER_LINEAR)
+            image = transform_x(image)
+
             self.images.append((image, image.shape, img_p))
 
         logger.info("demo start now .......")
