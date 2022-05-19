@@ -24,3 +24,6 @@ from .SemanticSegmentation import DeepLabV3
 from .SemanticSegmentation import DeepLabV3Plus
 from .SemanticSegmentation import DeepLabV3Plus2
 
+# 5. Object Detection
+from .det import YOLOX
+
