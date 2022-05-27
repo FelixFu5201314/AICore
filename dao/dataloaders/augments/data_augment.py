@@ -25,3 +25,22 @@ def get_transformer(transform_params):
     return albumentations.Compose(trans_albumentations)
 
 
+def get_transformerYOLO(transform_params):
+    trans_albumentations = []
+    for i, (k, v) in enumerate(transform_params.items()):
+        if getattr(albumentations, k, False):
+            trans_albumentations.append(getattr(albumentations, k)(**v))
+        else:
+            custom = importlib.import_module(
+                "dao.dataloaders.augments.custom.{}".format(k)).Custom(v)
+            trans_albumentations.append(custom)
+    return albumentations.Compose(
+        trans_albumentations,
+        bbox_params=albumentations.BboxParams(
+            format='yolo',
+            label_fields=['class_labels'],
+            min_area=0.0,
+            min_visibility=0.0
+        )
+    )
+

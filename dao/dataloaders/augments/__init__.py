@@ -5,7 +5,7 @@
 # @github:https://github.com/felixfu520
 
 # albumentations数据增强
-from .data_augment import get_transformer
+from .data_augment import get_transformer, get_transformerYOLO
 
 # torchvision数据增强，自己定义的。 for yolox
 from .data_augment_yolox import (

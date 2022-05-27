@@ -1,9 +1,5 @@
 # AI 核心库
 
-#### **功能添加说明**
-
-- 
-
 ## 一、项目由来
 
 在**工业流程**中，深度学习应用过程包括：
@@ -303,13 +299,91 @@ CUDA_VISIBLE_DEVICES=0  python main.py --num_machines 1 --machine_rank 0 --devic
 
 整个项目是由trainer(train,eval,demo,export), dataloader, dataset,model,optimizer,loss,scheduler,evaluator组件组成。其中，trainer负责将其他组件拼接起来，接下来会说明一些组件，但是不是每个都说下，详细请看代码。
 
-- 分布式组件
-  - Pytorch原生分布式
-    - DDP原理1: https://zhuanlan.zhihu.com/p/76638962 
-    - DDP原理2: https://zhuanlan.zhihu.com/p/343951042
-    - DDP随机种子: https://bbs.cvmart.net/articles/5491
-- Tricks
-  - 
+### 分布式组件
+
+- Pytorch原生分布式
+  - DDP原理1: https://zhuanlan.zhihu.com/p/76638962 
+  - DDP原理2: https://zhuanlan.zhihu.com/p/343951042
+  - DDP随机种子: https://bbs.cvmart.net/articles/5491
+
+### 数据集格式
+
+##### **Classification**
+
+```
+分类数据集
+
+        data_dir:str  数据集文件夹路径，文件夹要求是
+            |-dataset
+                |- 类别1
+                    |-图片
+                |- 类别2
+                |- ......
+                |- train.txt
+                |- val.txt
+                |- test.txt
+                |- labels.txt
+
+        image_set:str "train.txt", "val.txt" or "test.txt"
+        in_channels:int  输入图片的通道数，目前只支持1和3通道
+        input_size:tuple 输入图片的HW
+        preproc:albumentations.Compose 对图片进行预处理
+        cache:bool 是否对图片进行内存缓存
+        separator:str labels.txt, train.txt, val.txt, test.txt 的分割符（name与id）
+        images_suffix:list[str] 可接受的图片后缀
+```
+
+##### **Segmentation**
+
+```
+分割数据集
+
+        data_dir:str  数据集文件夹路径，文件夹要求是
+            |-dataset
+                |- images
+                    |-图片
+                |- masks
+                    |-图片
+                |- train.txt
+                |- val.txt
+                |- test.txt
+                |- labels.txt
+
+        image_set:str "train.txt or val.txt or test.txt"
+        in_channels:int  输入图片的通道数，目前只支持1和3通道
+        input_size:tuple 输入图片的HW
+        preproc:albumentations.Compose 对图片进行预处理
+        cache:bool 是否对图片进行内存缓存
+        images_suffix:str 可接受的图片后缀
+        mask_suffix:str 可接受的图片后缀
+```
+
+##### **MvTec异常检测数据集**
+
+```
+        异常检测数据集，（MVTecDataset类型）
+
+        data_dir:str  数据集文件夹路径，文件夹要求是
+            📂datasets 数据集名称
+              ┣ 📂 ground_truth  test测试文件夹对应的mask
+              ┃     ┣ 📂 defective_type_1    异常类别1 mask（0，255）
+              ┃     ┗ 📂 defective_type_2    异常类别2 mask
+              ┣ 📂 test  测试文件夹
+              ┃     ┣ 📂 defective_type_1    异常类别1 图片
+              ┃     ┣ 📂 defective_type_2    异常类别2 图片
+              ┃     ┗ 📂 good
+              ┗ 📂 train 训练文件夹
+              ┃     ┗ 📂 good
+
+        preproc:albumentations.Compose 对图片进行预处理
+        image_set:str "train.txt or val.txt or test.txt"； train.txt是训练，其余是测试
+        in_channels:int  输入图片的通道数，目前只支持1和3通道
+        cache:bool 是否对图片进行内存缓存
+        image_suffix:str 可接受的图片后缀
+        mask_suffix:str 可接受的图片后缀
+```
+
+
 
 ## 七、部署说明
 
