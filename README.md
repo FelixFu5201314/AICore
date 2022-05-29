@@ -247,9 +247,11 @@ CUDA_VISIBLE_DEVICES=0  python main.py --num_machines 1 --machine_rank 0 --devic
 
 ## 五、支持模型
 
-### 1. BackBone:[notes](notes/BackBone/README.md)
+### Models
+
+#### 1. BackBone:[notes](notes/BackBone/README.md)
 - timm:[code ref](https://github.com/AICoreRef/pytorch-image-models)
-### 2. ImageClassification:[notes](notes/ImageClassification/README.md)
+#### 2. ImageClassification:[notes](notes/ImageClassification/README.md)
 分类全部在timm基础上修改的, 因此[code ref](https://github.com/AICoreRef/pytorch-image-models)同上
 - efficientnetb0
 - efficientnetb1
@@ -264,7 +266,7 @@ CUDA_VISIBLE_DEVICES=0  python main.py --num_machines 1 --machine_rank 0 --devic
 | ---- | --------------------- | --------------------- | ---- |
 |      |                       |                       |      |
 
-### 3. SemanticSegmentation:[notes](notes/SemanticSegmentation/README.md)
+#### 3. SemanticSegmentation:[notes](notes/SemanticSegmentation/README.md)
 - Unet:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
 - Unet++:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
 - PSPNet:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
@@ -273,7 +275,7 @@ CUDA_VISIBLE_DEVICES=0  python main.py --num_machines 1 --machine_rank 0 --devic
 - DeepLabv3Plus:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
 - DeepLabv3Plus2:[code ref](https://github.com/AICoreRef/pytorch-segmentation)
 
-#### 效果对比
+##### 效果对比
 
 注意：以下实验均是跑通即可，均未调优，epoch为80.
 
@@ -287,13 +289,17 @@ CUDA_VISIBLE_DEVICES=0  python main.py --num_machines 1 --machine_rank 0 --devic
 | DeepLabV3Plus  | resnet50 | 0.76                 | 未测                  |      |
 | DeepLabV3Plus2 | resnet50 | 0.75                 | 未测                  |      |
 
-### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)
+#### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)
 
 - YOLOX [code ref](https://github.com/Megvii-BaseDetection/YOLOX)
 
-### 5. AnomalyDetection:[notes](notes/AnomalyDetection/README.md)
+#### 5. AnomalyDetection:[notes](notes/AnomalyDetection/README.md)
 - PaDim [code ref](https://github.com/AICoreRef/PaDiM-Anomaly-Detection-Localization-master) 
 - PaDiM2 [code ref](https://github.com/AICoreRef/ind_knn_ad)
+
+### Loss
+
+
 
 ## 六、组件说明
 
