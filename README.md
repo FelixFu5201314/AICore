@@ -245,68 +245,11 @@ CUDA_VISIBLE_DEVICES=0  python main.py --num_machines 1 --machine_rank 0 --devic
 
 
 
-## 五、支持模型
-
-### 1. BackBone:[notes](notes/BackBone/README.md)
-- timm:[code ref](https://github.com/AICoreRef/pytorch-image-models)
-### 2. ImageClassification:[notes](notes/ImageClassification/README.md)
-分类全部在timm基础上修改的, 因此[code ref](https://github.com/AICoreRef/pytorch-image-models)同上
-- efficientnetb0
-- efficientnetb1
-- resnet18
-- resnet34
-- resnet50
-- resnet101
-
-#### 效果对比
-
-| 模型 | 外观数据PZ-验证集top1 | 外观数据PZ-测试集top1 | 权重 |
-| ---- | --------------------- | --------------------- | ---- |
-|      |                       |                       |      |
-
-### 3. SemanticSegmentation:[notes](notes/SemanticSegmentation/README.md)
-- Unet:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
-- Unet++:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
-- PSPNet:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
-- PSPNet2:[code ref](https://github.com/AICoreRef/pytorch-segmentation)
-- DeepLabv3:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
-- DeepLabv3Plus:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
-- DeepLabv3Plus2:[code ref](https://github.com/AICoreRef/pytorch-segmentation)
-
-#### 效果对比
-
-注意：以下实验均是跑通即可，均未调优，epoch为80.
-
-| 模型           | 主干网络 | PascalVoc-验证集mIoU | PascalVoc -测试集mIoU | 权重 |
-| -------------- | -------- | -------------------- | --------------------- | ---- |
-| UNet           | resnet50 | 0.69                 | 未测                  |      |
-| UNet++         | resnet50 | 0.70                 | 未测                  |      |
-| PSPNet         | resnet50 | 0.72                 | 未测                  |      |
-| PSPNet2        | resnet50 | 0.76                 | 未测                  |      |
-| DeepLabV3      | resnet50 | 0.76                 | 未测                  |      |
-| DeepLabV3Plus  | resnet50 | 0.76                 | 未测                  |      |
-| DeepLabV3Plus2 | resnet50 | 0.75                 | 未测                  |      |
-
-### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)
-
-- YOLOX [code ref](https://github.com/Megvii-BaseDetection/YOLOX)
-
-### 5. AnomalyDetection:[notes](notes/AnomalyDetection/README.md)
-- PaDim [code ref](https://github.com/AICoreRef/PaDiM-Anomaly-Detection-Localization-master) 
-- PaDiM2 [code ref](https://github.com/AICoreRef/ind_knn_ad)
-
-## 六、组件说明
+## 五、支持组件
 
 整个项目是由trainer(train,eval,demo,export), dataloader, dataset,model,optimizer,loss,scheduler,evaluator组件组成。其中，trainer负责将其他组件拼接起来，接下来会说明一些组件，但是不是每个都说下，详细请看代码。
 
-### 分布式组件
-
-- Pytorch原生分布式
-  - DDP原理1: https://zhuanlan.zhihu.com/p/76638962 
-  - DDP原理2: https://zhuanlan.zhihu.com/p/343951042
-  - DDP随机种子: https://bbs.cvmart.net/articles/5491
-
-### 数据集格式
+### Dataset
 
 ##### **Classification**
 
@@ -385,13 +328,74 @@ CUDA_VISIBLE_DEVICES=0  python main.py --num_machines 1 --machine_rank 0 --devic
 
 
 
-## 七、部署说明
+### Models
+
+#### 1. BackBone:[notes](notes/BackBone/README.md)
+- timm:[code ref](https://github.com/AICoreRef/pytorch-image-models)
+#### 2. ImageClassification:[notes](notes/ImageClassification/README.md)
+分类全部在timm基础上修改的, 因此[code ref](https://github.com/AICoreRef/pytorch-image-models)同上
+- efficientnetb0
+- efficientnetb1
+- resnet18
+- resnet34
+- resnet50
+- resnet101
+
+##### 效果对比
+
+| 模型 | 外观数据PZ-验证集top1 | 外观数据PZ-测试集top1 | 权重 |
+| ---- | --------------------- | --------------------- | ---- |
+|      |                       |                       |      |
+
+#### 3. SemanticSegmentation:[notes](notes/SemanticSegmentation/README.md)
+- Unet:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
+- Unet++:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
+- PSPNet:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
+- PSPNet2:[code ref](https://github.com/AICoreRef/pytorch-segmentation)
+- DeepLabv3:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
+- DeepLabv3Plus:[code ref](https://github.com/AICoreRef/segmentation_models.pytorch)
+- DeepLabv3Plus2:[code ref](https://github.com/AICoreRef/pytorch-segmentation)
+
+##### 效果对比
+
+注意：以下实验均是跑通即可，均未调优，epoch为80.
+
+| 模型           | 主干网络 | PascalVoc-验证集mIoU | PascalVoc -测试集mIoU | 权重 |
+| -------------- | -------- | -------------------- | --------------------- | ---- |
+| UNet           | resnet50 | 0.69                 | 未测                  |      |
+| UNet++         | resnet50 | 0.70                 | 未测                  |      |
+| PSPNet         | resnet50 | 0.72                 | 未测                  |      |
+| PSPNet2        | resnet50 | 0.76                 | 未测                  |      |
+| DeepLabV3      | resnet50 | 0.76                 | 未测                  |      |
+| DeepLabV3Plus  | resnet50 | 0.76                 | 未测                  |      |
+| DeepLabV3Plus2 | resnet50 | 0.75                 | 未测                  |      |
+
+#### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)
+
+- YOLOX [code ref](https://github.com/Megvii-BaseDetection/YOLOX)
+
+#### 5. AnomalyDetection:[notes](notes/AnomalyDetection/README.md)
+- PaDim [code ref](https://github.com/AICoreRef/PaDiM-Anomaly-Detection-Localization-master) 
+- PaDiM2 [code ref](https://github.com/AICoreRef/ind_knn_ad)
+
+### Loss
+
+
+
+### Multi-GPU
+
+分布式组件
+
+- Pytorch原生分布式
+  - DDP原理1: https://zhuanlan.zhihu.com/p/76638962 
+  - DDP原理2: https://zhuanlan.zhihu.com/p/343951042
+  - DDP随机种子: https://bbs.cvmart.net/articles/5491
+
+## 六、部署说明
 
 深度学习模型训练完毕后需要部署在嵌入式、主机、手机等设备上，部署过程请参考我的另一个项目[AIDeploy](https://github.com/FelixFu520/AIDeploy)
 
-
-
-## 八、Debug
+## 七、Debug
 
 #### 1. 问题1：
 
