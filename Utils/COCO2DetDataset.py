@@ -48,11 +48,28 @@ class COCODataset(Dataset):
                  label_suffix="txt"
                  ):
         """
-        COCO dataset initialization. Annotation data are read into memory by COCO API.
+        Function: 将COCO数据集转成AICore DetDataset所需格式
+
         Args:
             data_dir (str): dataset root directory
-            json_file (str): COCO json file name
+                root@880d76488018:/ai/data/AIDatasets/ObjectDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/COCO# tree -d
+                    |-- annotations
+                        |-- captions_train2017.json
+                        |-- captions_val2017.json
+                        |-- instances_train2017.json
+                        |-- instances_val2017.json
+                        |-- person_keypoints_train2017.json
+                        `-- person_keypoints_val2017.json
+                    |-- test2017
+                        |-- *.jpg
+                    |-- train2017
+                        |-- *.jpg
+                    `-- val2017
+                        |-- *.jpg
+            json_file (str): COCO json file name. instances_train2017.json or instances_val2017.json
             name (str): COCO data name (e.g. 'train2017' or 'val2017')
+            img_suffix="jpg",
+            label_suffix="txt"
         """
         self.data_dir = data_dir
         self.json_file = json_file
