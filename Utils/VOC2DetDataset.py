@@ -182,3 +182,16 @@ if __name__ == "__main__":
     trainval_dataset.generateDetDataset(dstPath="/root/voc0712", train_val_test="train.txt")    # 生成训练集
     test_dataset.generateDetDataset(dstPath="/root/voc0712", train_val_test="test.txt")  # 生成验证/测试集
     trainval_dataset.generateDetDataset_labels(dstPath="/root/voc0712")    # 生成labels.txt
+
+    """
+    结果：
+        root@880d76488018:/root/voc0712# tree
+        
+        |-images  
+            - *.jpg
+        |-labels
+            - *.txt
+        |-labels.txt
+        |-test.txt
+        |-train.txt
+    """
