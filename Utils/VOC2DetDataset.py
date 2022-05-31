@@ -165,7 +165,7 @@ class VOC2DetDataset:
         """
         with open(osp.join(dstPath, "labels.txt"), 'w') as labelFile:
             logger.info("生成labels.txt")
-            for id_name in self.target_transform.class_to_ind:
+            for id_name in self.target_transform.class_to_ind.items():
                 labelFile.write(str(id_name[0]) + " ")
                 labelFile.write(str(id_name[1]) + "\n")
 
