@@ -142,7 +142,7 @@ class VOC2DetDataset:
                 # 3. check target
                 if len(target) == 0:
                     logger.error("{} not bbox".format(imgSrcPath))
-                    target = [0, 0, 0, 0, 0]
+                    target = [[0, 0, 0, 0, 0]]
 
                 # 4. 写入到labels中
                 with open(osp.join(labelDstPath, img_id+"."+self.label_suffix), 'w') as lableFile:
