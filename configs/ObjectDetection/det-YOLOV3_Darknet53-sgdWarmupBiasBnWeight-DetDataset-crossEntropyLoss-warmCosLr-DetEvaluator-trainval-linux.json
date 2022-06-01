@@ -1,0 +1,115 @@
+{
+    "name": "train",
+    "type": "det",
+    "fullName": "det-YOLOV3_Darknet53-sgdWarmupBiasBnWeight-DetDataset-crossEntropyLoss-warmCosLr-DetEvaluator-trainval-linux",
+
+    "trainer": {
+        "type": "DetTrainer",
+        "log_dir": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/ObjectDetection/yolov3/test",
+        "log_per_iter": 10,
+        "eval_interval": 1,
+
+        "warmup_epochs": 5,
+        "no_aug_epochs": 15,
+        "max_epochs": 300,
+
+        "ckpt": null,
+        "resume": false,
+
+        "amp": true,
+        "occupy": false,
+        "ema": true,
+
+        "multiscale_range": 5
+    },
+    "model": {
+        "type": "YOLOv3",
+        "kwargs": {
+            "input_size": 416,
+            "anchor_size": [
+                [12.48, 19.2], [31.36, 46.4], [46.4, 113.92],
+                [97.28, 55.04], [133.12, 127.36], [79.04, 224.0],
+                [301.12, 150.4], [172.16, 285.76], [348.16, 341.12]],
+            "num_classes": 80,
+            "trainable": 0,
+            "conf_thresh": 0.001,
+            "nms_thresh": 0.50,
+            "hr": false
+        }
+    },
+    "optimizer": {
+        "type": "sgd_warmup_bias_bn_weight",
+        "kwargs": {
+            "lr": 0.01,
+            "weight_decay": 1e-4,
+            "momentum": 0.9,
+            "warmup_lr": 0,
+            "warmup_epoch": 5
+        }
+    },
+    "dataloader": {
+        "type": "DetDataloaderTrain",
+        "dataset": {
+            "type": "DetDataset",
+            "kwargs": {
+                "data_dir": "/ai/data/AIDatasets/ObjectDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/voc0712",
+                "image_set": "train.txt",
+                "in_channels": 3,
+                "image_suffix":".jpg",
+                "mask_suffix": ".txt"
+            },
+            "transforms": {
+                "kwargs": {
+                    "Resize": {"height": 416, "width": 416, "p": 1},
+                    "Normalize": {
+                        "mean": [0.45289162, 0.43158466, 0.3984241],
+                        "std": [0.2709828, 0.2679657, 0.28093508], "p": 1
+                    }
+                }
+            }
+        },
+        "kwargs": {
+            "num_workers": 8,
+            "batch_size": 1
+        }
+    },
+    "lr_scheduler": {
+        "type": "warm_cos_lr",
+        "kwargs": {
+            "warmup_epochs": 5,
+            "warmup_lr_start": 0
+        }
+    },
+    "evaluator": {
+        "type": "DetEvaluator",
+        "dataloader": {
+            "type": "DetDataloaderEval",
+            "dataset": {
+                "type": "DetDataset",
+                "kwargs": {
+                    "data_dir": "/root/data/DAO/COCO",
+                    "image_set": "val2017",
+                    "in_channels": 3,
+                    "input_size": [640, 640],
+                    "cache": false,
+                    "image_suffix":".jpg"
+	            },
+                "transforms": {
+                    "kwargs": {
+                         "swap":[2, 0, 1],
+                         "legacy": false
+                    }
+            }
+            },
+            "kwargs": {
+                "num_workers": 8,
+                "batch_size": 16
+            }
+        },
+        "kwargs": {
+            "img_size": [640, 640],
+            "confthre": 0.5,
+            "nmsthre": 0.5
+        }
+    }
+}
