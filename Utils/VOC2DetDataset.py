@@ -166,7 +166,7 @@ class VOC2DetDataset:
         with open(osp.join(dstPath, "labels.txt"), 'w') as labelFile:
             logger.info("生成labels.txt")
             for id_name in self.target_transform.class_to_ind.items():
-                labelFile.write(str(id_name[0]) + " ")
+                labelFile.write(str(id_name[0]) + ":")
                 labelFile.write(str(id_name[1]) + "\n")
 
 
@@ -181,7 +181,7 @@ if __name__ == "__main__":
     )
     trainval_dataset.generateDetDataset(dstPath="/root/voc0712", train_val_test="train.txt")    # 生成训练集
     test_dataset.generateDetDataset(dstPath="/root/voc0712", train_val_test="test.txt")  # 生成验证/测试集
-    trainval_dataset.generateDetDataset_labels(dstPath="/root/voc0712")    # 生成labels.txt
+    trainval_dataset.generateDetDataset_labels(dstPath="/ai/data/AIDatasets/ObjectDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/voc0712")    # 生成labels.txt
 
     """
     结果：

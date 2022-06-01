@@ -157,7 +157,7 @@ class COCODataset(Dataset):
         with open(os.path.join(dstPath, "labels.txt"), 'w') as labelFile:
             logger.info("生成labels.txt")
             for id, name in enumerate([coco_class_labels[tmp] for tmp in coco_class_index]):
-                labelFile.write(str(name) + " ")
+                labelFile.write(str(name) + ":")
                 labelFile.write(str(id) + "\n")
 
 
