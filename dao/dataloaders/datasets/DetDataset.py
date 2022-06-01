@@ -16,10 +16,11 @@ from dao.register import Registers
 
 
 @Registers.datasets.register
-class DetDatasetYolo(Dataset):
+class DetDataset(Dataset):
     def __init__(self,
                  data_dir=None,
                  preproc=None,
+                 preproc_pixel=None,
                  image_set="",
                  in_channels=1,
                  input_size=(224, 224),
@@ -44,6 +45,7 @@ class DetDatasetYolo(Dataset):
         in_channels:int  输入图片的通道数，目前只支持1和3通道
         input_size:tuple 输入图片的HW
         preproc:albumentations.Compose 对图片进行预处理
+        preproc_pixel:albumentations.Compose 对图片进行预处理, 针对COCO数据集中无bbox情况
         cache:bool 是否对图片进行内存缓存
         images_suffix:str 可接受的图片后缀
         mask_suffix:str 可接受的图片后缀
@@ -51,6 +53,7 @@ class DetDatasetYolo(Dataset):
         # set attr
         self.root = data_dir    # 数据集路径
         self.preproc = preproc  # albumentations预处理
+        self.preproc_pixel = preproc_pixel  # albumentations预处理, 针对COCO数据集中无bbox情况
         self.image_set = image_set  # 训练集、验证集、测试集
         self.in_channels = in_channels  # 图片通道数
         self.img_size = input_size  # 图片宽高
@@ -59,7 +62,8 @@ class DetDatasetYolo(Dataset):
 
         # 存储数据
         self.ids = []   # 存放图片路径 (image path, mask path)
-        self.labels_dict = dict()  # id:name形式
+        self.labels_id_name = dict()  # id:name形式
+        self.labels_name_id = dict()  # name:id形式
 
         self._set_ids()  # 获取所有文件名，存放到self.ids中 [(image_path, label_path), ... ]
 
@@ -69,22 +73,27 @@ class DetDatasetYolo(Dataset):
         :param index:
         :return:
             transformed_image: image ndarray
-            transformed_bboxes: 返回bboxes [n, 4], norm[cx,cy,w,h]
+            transformed_bboxes: 返回bboxes [n, 4], norm[x1,y1,x2,y2]
             transformed_class_labels:[n], class_id
             image_path:图片路径
         """
         image, bboxes, class_labels, image_path = self.pull_item(index)  # image:ndarray, label:[(class_id,x,y,h,w),...], image_path:[string jpg,string label]
 
         # 使用albumentations增强图片
-        class_labels_name = [self.labels_dict[str(tmp)] for tmp in class_labels]    # 通过class_id获得class_name
-        if self.preproc is not None:
-            transformed = self.preproc(image=image, bboxes=bboxes, class_labels=class_labels_name)
+        if len(bboxes) == 1 and np.sum(bboxes) == 0 and self.preproc_pixel is not None:
+            transformed = self.preproc_pixel(image=image)
             transformed_image = transformed['image']
-            transformed_bboxes = transformed['bboxes']
-            transformed_class_labels = transformed['class_labels']
+            transformed_bboxes = bboxes
+            class_labels = [255]
+        elif self.preproc is not None:
+                class_labels_name = [self.labels_id_name[str(tmp)] for tmp in class_labels]  # 通过class_id获得class_name
+                transformed = self.preproc(image=image, bboxes=bboxes, class_labels=class_labels_name)
+                transformed_image = transformed['image']
+                transformed_bboxes = transformed['bboxes']
+                transformed_class_labels = transformed['class_labels']
         transformed_image = transformed_image.transpose(2, 0, 1)  # c, h, w
         transformed_bboxes = np.asarray(transformed_bboxes)
-        return transformed_image, transformed_bboxes, transformed_class_labels, image_path
+        return transformed_image, transformed_bboxes, class_labels, image_path
 
     def pull_item(self, index):
         """
@@ -96,6 +105,8 @@ class DetDatasetYolo(Dataset):
         if self.in_channels == 1:
             img = np.expand_dims(img.copy(), axis=2)
         elif self.in_channels == 3:
+            if len(img.shape) == 2:  # COCO2017数据中存在灰度图像，000000559665.jpg，所以需要将这类图像转成BGR
+                img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
             img = img.copy()
         return img, bbox, label, self.ids[index]
 
@@ -104,7 +115,7 @@ class DetDatasetYolo(Dataset):
         Function：通过index,找到文件名，
              然后获得
                     图片（ndarray）
-                    bbox（[(x,y,w,h)归一化后的(yolo格式）,])
+                    bbox（[norm(x1,y1,x2,y2), ...])
                     label[类别ID,...]
         :param index:
         :return:
@@ -124,8 +135,8 @@ class DetDatasetYolo(Dataset):
         label = []
         with open(label_path, 'r') as bbox_file:
             for line in bbox_file.readlines():
-                bbox.append([eval(tmp) for tmp in line.strip().split()][1:])
-                label.append([eval(tmp) for tmp in line.strip().split()][0])
+                bbox.append([eval(tmp) for tmp in line.strip().split()][:4])
+                label.append([eval(tmp) for tmp in line.strip().split()][4])
         return image, bbox, label
 
     def _set_ids(self):
@@ -141,10 +152,12 @@ class DetDatasetYolo(Dataset):
                 label_path = os.path.join(self.root, "labels", line.strip() + self.mask_suffix).replace("\\",'/')
                 self.ids.append((image_path, label_path))
 
-        # 获得id:name，设置self.labels_dict
-        with open(os.path.join(self.root, "labels.txt"), 'r', encoding='utf-8') as labels:
-            for label in labels:
-                self.labels_dict[label.split()[0]] = label.split()[1]
+        # 获得id:name，设置self.labels_id_name = dict() , self.labels_name_id
+        with open(os.path.join(self.root, "labels.txt"), 'r', encoding='utf-8') as labelsFile:
+            for line in labelsFile.readlines():
+                line = line.strip()
+                self.labels_id_name[line.split(":")[1]] = line.split(":")[0]
+                self.labels_name_id[line.split(":")[0]] = line.split(":")[1]
 
     def __len__(self):
         return len(self.ids)
@@ -164,12 +177,59 @@ def denormalization(x, norm_mean, norm_std):
 
 
 if __name__ == "__main__":
-    from dao.dataloaders.augments import get_transformerYOLO
+    from dao.dataloaders.augments import get_transformerYOLO, get_transformer
     from dotmap import DotMap
+    # # VOC
+    # dataset_d = {
+    #     "type": "DetDatasetYolo",
+    #     "kwargs": {
+    #         "data_dir": "/ai/data/AIDatasets/ObjectDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/voc0712",
+    #         "image_set": "train.txt",
+    #         "in_channels": 3,
+    #         "input_size": [416, 416],
+    #         "image_suffix": ".jpg",
+    #         "mask_suffix": ".txt"
+    #     },
+    #     "transforms": {
+    #         "kwargs": {
+    #             # "Resize": {"height": 416, "width": 416, "p": 1},
+    #             # "Flip": {"p": 1},
+    #             "Normalize": {"mean": [0.45289162, 0.43158466, 0.3984241], "std": [0.2709828, 0.2679657, 0.28093508], "p": 1}
+    #
+    #         }
+    #     }
+    # }
+    # dataset_c = DotMap(dataset_d)
+    # transforms = get_transformerYOLO(dataset_c.transforms.kwargs)
+    # seg_d = DetDataset(preproc=transforms, **dataset_c.kwargs)
+    # for i in range(1000):
+    #     transformed_image, transformed_bboxes, transformed_class_labels, image_path = seg_d.__getitem__(i)
+    #
+    #     # 获得图片
+    #     image = denormalization(transformed_image, norm_mean=[0.45289162, 0.43158466, 0.3984241], norm_std=[0.2709828, 0.2679657, 0.28093508])
+    #     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    #     height, width = image.shape[0], image.shape[1]
+    #     for bbox, labelName in zip(transformed_bboxes, transformed_class_labels):
+    #         xmin = round(bbox[0] * width)
+    #         ymin = round(bbox[1] * height)
+    #         xmax = round(bbox[2] * width)
+    #         ymax = round(bbox[3] * height)
+    #
+    #         if xmax <= xmin or ymax <= ymin:
+    #             logger.error("No bbox")
+    #             continue
+    #
+    #         cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 4)
+    #
+    #         font = cv2.FONT_HERSHEY_SIMPLEX
+    #         cv2.putText(image, seg_d.labels_id_name[str(labelName)], (xmin, ymin), font, 1, (0, 0, 255), 1)
+    #     cv2.imwrite("/ai/data/test_voc/{}".format(image_path[0].split('/')[-1]), image)
+
+    # COCO
     dataset_d = {
         "type": "DetDatasetYolo",
         "kwargs": {
-            "data_dir": "/ai/data/AIDatasets/ObjectDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/coco2014",
+            "data_dir": "/ai/data/AIDatasets/ObjectDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/coco2017",
             "image_set": "train.txt",
             "in_channels": 3,
             "input_size": [416, 416],
@@ -178,45 +238,37 @@ if __name__ == "__main__":
         },
         "transforms": {
             "kwargs": {
-                "Resize": {"height": 416, "width": 416, "p": 1},
-                "Flip": {"p": 1},
-                "Normalize": {"mean": [0.471, 0.448, 0.408], "std": [0.234, 0.239, 0.242], "p": 1}
+                # "Resize": {"height": 416, "width": 416, "p": 1},
+                # "Flip": {"p": 1},
+                "Normalize": {"mean": [0.47013634, 0.44689935, 0.4076691], "std": [0.27452907, 0.26994488, 0.28498003], "p": 1}
 
             }
         }
     }
-
     dataset_c = DotMap(dataset_d)
     transforms = get_transformerYOLO(dataset_c.transforms.kwargs)
-    seg_d = DetDatasetYolo(preproc=transforms, **dataset_c.kwargs)
-    transformed_image, transformed_bboxes, transformed_class_labels, image_path = seg_d.__getitem__(1)
+    transforms_pixel = get_transformer(dataset_c.transforms.kwargs)
+    seg_d = DetDataset(preproc=transforms, preproc_pixel=transforms_pixel, **dataset_c.kwargs)
+    for i in range(1000):
+        transformed_image, transformed_bboxes, transformed_class_labels, image_path = seg_d.__getitem__(i)
 
-    # 1. 处理图片
-    image = denormalization(transformed_image, norm_mean=[0.471, 0.448, 0.408], norm_std=[0.234, 0.239, 0.242])
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-    height, width = image.shape[0], image.shape[1]
-    for bbox, labelName in zip(transformed_bboxes, transformed_class_labels):
-        # cxcywh2xyxy
-        center_x = round(bbox[0] * width)
-        center_y = round(bbox[1] * height)
-        bbox_width = round(bbox[2] * width)
-        bbox_height = round(bbox[3] * height)
-        xmin = int(center_x - bbox_width / 2)
-        ymin = int(center_y - bbox_height / 2)
-        xmax = int(center_x + bbox_width / 2)
-        ymax = int(center_y + bbox_height / 2)
+        # 获得图片
+        image = denormalization(transformed_image,
+                                norm_mean=[0.47013634, 0.44689935, 0.4076691],
+                                norm_std=[0.27452907, 0.26994488, 0.28498003])
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        height, width = image.shape[0], image.shape[1]
+        for bbox, labelName in zip(transformed_bboxes, transformed_class_labels):
+            xmin = round(bbox[0] * width)
+            ymin = round(bbox[1] * height)
+            xmax = round(bbox[2] * width)
+            ymax = round(bbox[3] * height)
 
-        cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 4)
+            if xmax <= xmin or ymax <= ymin:
+                logger.error("{} ... No bbox".format(image_path[0]))
+            else:
+                cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 4)
 
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(image, labelName, (xmin, ymin), font, 1, (0, 0, 255), 1)
-    cv2.imwrite("/ai/data/t1.jpg", image)
-    #
-    # 2. 处理bbox: cxcywh2xyxy
-    # xmin = transformed_bboxes[:, 0] - transformed_bboxes[:, 2]/2
-    # ymin = transformed_bboxes[:, 1] - transformed_bboxes[:, 3]/2
-    # xmax = transformed_bboxes[:, 2] + transformed_bboxes[:, 2]/2
-    # ymax = transformed_bboxes[:, 3] + transformed_bboxes[:, 3]/2
-    # for bbox, labelName in zip(transformed_bboxes, transformed_class_labels):
-
-
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.putText(image, seg_d.labels_id_name[str(labelName)], (xmin, ymin), font, 1, (0, 0, 255), 1)
+        cv2.imwrite("/ai/data/test_coco/{}".format(image_path[0].split('/')[-1]), image)
