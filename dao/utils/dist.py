@@ -73,8 +73,11 @@ def get_num_devices():
 @contextmanager
 def wait_for_the_master(local_rank: int):
     """
-    Make all processes waiting for the master to do some task.
-    所有进程等待rank0完成一些事情后，再运行。事情是wait_for_the_master装饰的函数。
+    Function:
+        Make all processes waiting for the master to do some task.
+        所有进程等待rank0完成一些事情后，再运行。事情是wait_for_the_master装饰的函数。
+
+    @:param local_rank: int 当前rank的id
     """
     if local_rank > 0:
         print("wait_for_the_master, local_rank {} wait".format(local_rank))
@@ -135,7 +138,7 @@ def get_rank() -> int:
 
 def get_local_rank() -> int:
     """
-    获得local_rank.
+    Function: 获得local_rank.
 
     Returns:
         The rank of the current process within the local (per-machine) process group.
