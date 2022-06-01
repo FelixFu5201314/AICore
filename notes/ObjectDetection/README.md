@@ -22,7 +22,12 @@
 
 - FPN: https://cloud.tencent.com/developer/article/1546594
 - PAFPN: https://zhuanlan.zhihu.com/p/397020975
-- 
+
+## 网络结构
+
+##### YoloV3
+
+![](imgs/yolov3.png)
 
 # 🍭项目篇
 
@@ -41,3 +46,4 @@
 ## ️ 图像质量评价/Image Quality Assessment
 
 - 🐾 hyperIQA-[](https://github.com/FelixFu520/hyperIQA)| [-v2回归](https://github.com/TD-4/ScreenCheck) [V2-分类](https://github.com/TD-4/ScreenCheck_cls)|[📒](train/iqa/hypernet.md)
+
