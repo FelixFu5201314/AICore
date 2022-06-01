@@ -43,7 +43,7 @@ class DetDataset(Dataset):
 
         image_set:str "train.txt or val.txt or test.txt"
         in_channels:int  输入图片的通道数，目前只支持1和3通道
-        input_size:tuple 输入图片的HW
+        input_size:tuple 输入图片的HW, 当需要cache image时需要，此处用不到
         preproc:albumentations.Compose 对图片进行预处理
         preproc_pixel:albumentations.Compose 对图片进行预处理, 针对COCO数据集中无bbox情况
         cache:bool 是否对图片进行内存缓存
@@ -179,60 +179,58 @@ def denormalization(x, norm_mean, norm_std):
 if __name__ == "__main__":
     from dao.dataloaders.augments import get_transformerYOLO, get_transformer
     from dotmap import DotMap
-    # # VOC
-    # dataset_d = {
-    #     "type": "DetDatasetYolo",
-    #     "kwargs": {
-    #         "data_dir": "/ai/data/AIDatasets/ObjectDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/voc0712",
-    #         "image_set": "train.txt",
-    #         "in_channels": 3,
-    #         "input_size": [416, 416],
-    #         "image_suffix": ".jpg",
-    #         "mask_suffix": ".txt"
-    #     },
-    #     "transforms": {
-    #         "kwargs": {
-    #             # "Resize": {"height": 416, "width": 416, "p": 1},
-    #             # "Flip": {"p": 1},
-    #             "Normalize": {"mean": [0.45289162, 0.43158466, 0.3984241], "std": [0.2709828, 0.2679657, 0.28093508], "p": 1}
-    #
-    #         }
-    #     }
-    # }
-    # dataset_c = DotMap(dataset_d)
-    # transforms = get_transformerYOLO(dataset_c.transforms.kwargs)
-    # seg_d = DetDataset(preproc=transforms, **dataset_c.kwargs)
-    # for i in range(1000):
-    #     transformed_image, transformed_bboxes, transformed_class_labels, image_path = seg_d.__getitem__(i)
-    #
-    #     # 获得图片
-    #     image = denormalization(transformed_image, norm_mean=[0.45289162, 0.43158466, 0.3984241], norm_std=[0.2709828, 0.2679657, 0.28093508])
-    #     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-    #     height, width = image.shape[0], image.shape[1]
-    #     for bbox, labelName in zip(transformed_bboxes, transformed_class_labels):
-    #         xmin = round(bbox[0] * width)
-    #         ymin = round(bbox[1] * height)
-    #         xmax = round(bbox[2] * width)
-    #         ymax = round(bbox[3] * height)
-    #
-    #         if xmax <= xmin or ymax <= ymin:
-    #             logger.error("No bbox")
-    #             continue
-    #
-    #         cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 4)
-    #
-    #         font = cv2.FONT_HERSHEY_SIMPLEX
-    #         cv2.putText(image, seg_d.labels_id_name[str(labelName)], (xmin, ymin), font, 1, (0, 0, 255), 1)
-    #     cv2.imwrite("/ai/data/test_voc/{}".format(image_path[0].split('/')[-1]), image)
+    # VOC
+    dataset_d = {
+        "type": "DetDataset",
+        "kwargs": {
+            "data_dir": "/ai/data/AIDatasets/ObjectDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/voc0712",
+            "image_set": "train.txt",
+            "in_channels": 3,
+            "image_suffix": ".jpg",
+            "mask_suffix": ".txt"
+        },
+        "transforms": {
+            "kwargs": {
+                # "Resize": {"height": 416, "width": 416, "p": 1},
+                # "Flip": {"p": 1},
+                "Normalize": {"mean": [0.45289162, 0.43158466, 0.3984241], "std": [0.2709828, 0.2679657, 0.28093508], "p": 1}
+
+            }
+        }
+    }
+    dataset_c = DotMap(dataset_d)
+    transforms = get_transformerYOLO(dataset_c.transforms.kwargs)
+    seg_d = DetDataset(preproc=transforms, **dataset_c.kwargs)
+    for i in range(1000):
+        transformed_image, transformed_bboxes, transformed_class_labels, image_path = seg_d.__getitem__(i)
+
+        # 获得图片
+        image = denormalization(transformed_image, norm_mean=[0.45289162, 0.43158466, 0.3984241], norm_std=[0.2709828, 0.2679657, 0.28093508])
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        height, width = image.shape[0], image.shape[1]
+        for bbox, labelName in zip(transformed_bboxes, transformed_class_labels):
+            xmin = round(bbox[0] * width)
+            ymin = round(bbox[1] * height)
+            xmax = round(bbox[2] * width)
+            ymax = round(bbox[3] * height)
+
+            if xmax <= xmin or ymax <= ymin:
+                logger.error("No bbox")
+                continue
+
+            cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 4)
+
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(image, seg_d.labels_id_name[str(labelName)], (xmin, ymin), font, 1, (0, 0, 255), 1)
+        cv2.imwrite("/ai/data/test_voc/{}".format(image_path[0].split('/')[-1]), image)
 
     # COCO
     dataset_d = {
-        "type": "DetDatasetYolo",
+        "type": "DetDataset",
         "kwargs": {
             "data_dir": "/ai/data/AIDatasets/ObjectDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/coco2017",
             "image_set": "train.txt",
             "in_channels": 3,
-            "input_size": [416, 416],
             "image_suffix": ".jpg",
             "mask_suffix": ".txt"
         },
