@@ -26,6 +26,12 @@ def get_transformer(transform_params):
 
 
 def get_transformerYOLO(transform_params):
+    """
+    Function: 对目标检测数据进行增强
+
+    :param transform_params:transform参数
+    :return:
+    """
     trans_albumentations = []
     for i, (k, v) in enumerate(transform_params.items()):
         if getattr(albumentations, k, False):
@@ -37,7 +43,7 @@ def get_transformerYOLO(transform_params):
     return albumentations.Compose(
         trans_albumentations,
         bbox_params=albumentations.BboxParams(
-            format='yolo',
+            format='albumentations',
             label_fields=['class_labels'],
             min_area=0.0,
             min_visibility=0.0
