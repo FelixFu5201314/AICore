@@ -33,29 +33,21 @@ class BatchSampler(torchBatchSampler):
 
 
 class InfiniteSampler(Sampler):
-    """
-    In training, we only care about the "infinite stream" of training data.
-    So this sampler produces an infinite stream of indices and
-    all workers cooperate to correctly shuffle the indices and sample different indices.
-    The samplers in each worker effectively produces `indices[worker_id::num_workers]`
-    where `indices` is an infinite stream of indices consisting of
-    `shuffle(range(size)) + shuffle(range(size)) + ...` (if shuffle is True)
-    or `range(size) + range(size) + ...` (if shuffle is False)
-    在训练中，我们只关心训练数据的“无限流”。
-    所以这个sampler产生了无限的索引流，所有workers共同协作，正确shuffle indices和采样不同的indices。
-    每个worker中的sample有效地生成' indices[worker_id::num_workers] '
-    其中“indices”是无限的索引流，由shuffle(range(size)) + shuffle(range(size)) +…(如果shuffle是真的)
-    或者' range(size) + range(size) +…(如果shuffle是假的)
-    """
-    def __init__(
-        self,
-        size: int,
-        shuffle: bool = True,
-        seed: Optional[int] = 0,
-        rank=0,
-        world_size=1,
-    ):
+    def __init__(self, size: int, shuffle: bool = True, seed: Optional[int] = 0, rank=0, world_size=1):
         """
+        Function:
+            In training, we only care about the "infinite stream" of training data.
+            So this sampler produces an infinite stream of indices and
+            all workers cooperate to correctly shuffle the indices and sample different indices.
+            The samplers in each worker effectively produces `indices[worker_id::num_workers]`
+            where `indices` is an infinite stream of indices consisting of
+            `shuffle(range(size)) + shuffle(range(size)) + ...` (if shuffle is True)
+            or `range(size) + range(size) + ...` (if shuffle is False)
+            在训练中，我们只关心训练数据的“无限流”。
+            所以这个sampler产生了无限的索引流，所有workers共同协作，正确shuffle indices和采样不同的indices。
+            每个worker中的sample有效地生成' indices[worker_id::num_workers] '
+            其中“indices”是无限的索引流，由shuffle(range(size)) + shuffle(range(size)) +…(如果shuffle是真的)
+            或者' range(size) + range(size) +…(如果shuffle是假的)
         Args:
             size (int): the total number of data of the underlying dataset to sample from
             shuffle (bool): whether to shuffle the indices or not
@@ -68,6 +60,7 @@ class InfiniteSampler(Sampler):
         self._shuffle = shuffle     # 是否打乱数据的顺序
         self._seed = int(seed)      # 随机数
 
+        # 获得rank和world_size
         if dist.is_available() and dist.is_initialized():
             self._rank = dist.get_rank()
             self._world_size = dist.get_world_size()
@@ -77,7 +70,8 @@ class InfiniteSampler(Sampler):
 
     def __iter__(self):
         """
-        实现了__iter__方法的对象是可迭代的
+        Function: 实现了__iter__方法的对象是可迭代的
+
         :return:
         """
         start = self._rank
