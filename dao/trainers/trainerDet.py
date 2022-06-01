@@ -11,12 +11,10 @@ import time
 import json
 import datetime
 import numpy as np
-from tqdm import tqdm
 from PIL import Image
 from loguru import logger
 
 import torch    # 深度学习相关库
-from torchsummary import summary
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
@@ -36,7 +34,7 @@ from dao.utils import (       # 导入Train util库
     get_palette,        # 获得画板颜色,颜色版共num_classes
     colorize_mask,      # 为mask图，填充颜色
     synchronize,        # 同步所有进程(GPU)
-    DataPrefetcherSeg,  # 数据预加载
+    DataPrefetcherDet,  # 数据预加载
     all_reduce_norm,    # BN 参数进行多卡同步
     get_rank, get_local_rank, get_world_size,  # 导入分布式库
 )
@@ -98,13 +96,13 @@ class DetTrainer:
 
         logger.info("2. Model Setting ...")
         torch.cuda.set_device(get_local_rank())
-        model = Registers.det_models.get(self.exp.model.type)(self.exp.model.backbone, **self.exp.model.kwargs)
+        model = Registers.det_models.get(self.exp.model.type)(device="cuda:{}".format(get_local_rank()),
+                                                              **self.exp.model.kwargs)
         logger.info("\n{}".format(model)) if self.parser.detail else None  # log model structure
-        summary(model, input_size=(3, 224, 224), device="cpu") if self.parser.detail else None  # log torchsummary model
         model.to("cuda:{}".format(get_local_rank()))    # model to self.device
 
         logger.info("3. Optimizer Setting")
-        self.optimizer = Registers.optims.get(self.exp.optimizer.type)(model=model, **self.exp.optimizer.kwargs)
+        # self.optimizer = Registers.optims.get(self.exp.optimizer.type)(model=model, **self.exp.optimizer.kwargs)
 
         logger.info("4. Resume/FineTuning Setting ...")
         model = self._resume_train(model)
@@ -112,24 +110,20 @@ class DetTrainer:
         logger.info("5. Dataloader Setting ... ")
         self.max_epoch = self.exp.trainer.max_epochs
         self.no_aug = self.start_epoch >= self.max_epoch - self.exp.trainer.no_aug_epochs
-        self.train_loader = Registers.dataloaders.get(self.exp.dataloader.type)(
+        train_loader = Registers.dataloaders.get(self.exp.dataloader.type)(
             is_distributed=get_world_size() > 1,
             dataset=self.exp.dataloader.dataset,
             seed=self.parser.seed,
             **self.exp.dataloader.kwargs
         )
-        self.max_iter = len(self.train_loader)
+        self.max_iter = len(train_loader)
         logger.info("init prefetcher, this might take one minute or less...")
         # to solve https://github.com/pytorch/pytorch/issues/11201
         torch.multiprocessing.set_sharing_strategy('file_system')
-        self.train_loader = DataPrefetcherSeg(self.train_loader)
+        self.train_loader = DataPrefetcherDet(train_loader)
 
         logger.info("6. Loss Setting ... ")
-        self.loss = Registers.losses.get(self.exp.loss.type)(**self.exp.loss.kwargs)
-        self.loss.to(device="cuda:{}".format(get_local_rank()))
-        if "aux_params" in self.exp.model.kwargs:
-            self.loss_aux = Registers.losses.get(self.exp.aux_loss.type)(**self.exp.aux_loss.kwargs)
-            self.loss_aux.to(device="cuda:{}".format(get_local_rank()))
+        logger.info("Yolo loss in Model!!!!")
 
         logger.info("7. Scheduler Setting ... ")
         self.lr_scheduler = Registers.schedulers.get(self.exp.lr_scheduler.type)(
