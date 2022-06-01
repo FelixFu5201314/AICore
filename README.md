@@ -326,6 +326,28 @@ CUDA_VISIBLE_DEVICES=0  python main.py --num_machines 1 --machine_rank 0 --devic
         mask_suffix:str 可接受的图片后缀
 ```
 
+##### ObjectDetection
+
+```
+bboxes格式：https://albumentations.ai/docs/getting_started/bounding_boxes_augmentation/
+pascal_voc
+[x_min,y_min,x_max,y_max]->[98,345,420,462]
+
+albumentations
+normalized[x_min,y_min,x_max,y_max]->[0.153125,0.71875,0.65625,0.9625]
+
+coco
+[x_min,y_min,width,height]->[98,345,322,117]
+
+yolo
+normalized[x_center,y_center,width,height]->[0.4046875, 0.8614583,0.503125,0.24375]
+
+我采用的是albumentations格式作为ObjectDetection的bbox数据格式, 即：
+normalized[x_min,y_min,x_max,y_max, class_id] ->[0.153125,0.71875,0.65625,0.9625,15]
+
+
+```
+
 
 
 ### Models
@@ -372,6 +394,7 @@ CUDA_VISIBLE_DEVICES=0  python main.py --num_machines 1 --machine_rank 0 --devic
 
 #### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)
 
+- YoloV3 [code ref](https://github.com/AICoreRef/yolov2-yolov3_PyTorch)
 - YOLOX [code ref](https://github.com/Megvii-BaseDetection/YOLOX)
 
 #### 5. AnomalyDetection:[notes](notes/AnomalyDetection/README.md)
