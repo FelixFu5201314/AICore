@@ -16,10 +16,11 @@ from .samplers import BatchSampler
 
 class DataLoader(torchDataLoader):
     """
-    Lightnet dataloader that enables on the fly resizing of the images.
-    See :class:`torch.utils.data.DataLoader` for more information on the arguments.
-    Check more on the following website:
-    https://gitlab.com/EAVISE/lightnet/-/blob/master/lightnet/data/_dataloading.py
+    Function: Dataloader， 继承torch.utils.data.dataloader.DataLoader，并做了修改
+        Lightnet dataloader that enables on the fly resizing of the images.
+        See :class:`torch.utils.data.DataLoader` for more information on the arguments.
+        Check more on the following website:
+        https://gitlab.com/EAVISE/lightnet/-/blob/master/lightnet/data/_dataloading.py
     """
 
     def __init__(self, *args, **kwargs):
