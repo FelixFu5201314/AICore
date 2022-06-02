@@ -93,7 +93,9 @@ class DetDataset(Dataset):
                 transformed_class_labels = transformed['class_labels']
         transformed_image = transformed_image.transpose(2, 0, 1)  # c, h, w
         transformed_bboxes = np.asarray(transformed_bboxes)
-        return transformed_image, transformed_bboxes, class_labels, image_path
+        labels = np.hstack((transformed_bboxes, np.expand_dims(class_labels, axis=1)))  # 将bboxes和labels合并
+        return transformed_image, labels, image_path
+
 
     def pull_item(self, index):
         """
@@ -202,17 +204,18 @@ if __name__ == "__main__":
     transforms = get_transformerYOLO(dataset_c.transforms.kwargs)
     seg_d = DetDataset(preproc=transforms, **dataset_c.kwargs)
     for i in range(1000):
-        transformed_image, transformed_bboxes, transformed_class_labels, image_path = seg_d.__getitem__(i)
+        transformed_image, transformed_class_labels, image_path = seg_d.__getitem__(i)
 
         # 获得图片
         image = denormalization(transformed_image, norm_mean=[0.45289162, 0.43158466, 0.3984241], norm_std=[0.2709828, 0.2679657, 0.28093508])
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         height, width = image.shape[0], image.shape[1]
-        for bbox, labelName in zip(transformed_bboxes, transformed_class_labels):
+        for bbox in transformed_class_labels:
             xmin = round(bbox[0] * width)
             ymin = round(bbox[1] * height)
             xmax = round(bbox[2] * width)
             ymax = round(bbox[3] * height)
+            labelName = int(bbox[4])
 
             if xmax <= xmin or ymax <= ymin:
                 logger.error("No bbox")
@@ -248,7 +251,7 @@ if __name__ == "__main__":
     transforms_pixel = get_transformer(dataset_c.transforms.kwargs)
     seg_d = DetDataset(preproc=transforms, preproc_pixel=transforms_pixel, **dataset_c.kwargs)
     for i in range(1000):
-        transformed_image, transformed_bboxes, transformed_class_labels, image_path = seg_d.__getitem__(i)
+        transformed_image, transformed_class_labels, image_path = seg_d.__getitem__(i)
 
         # 获得图片
         image = denormalization(transformed_image,
@@ -256,12 +259,12 @@ if __name__ == "__main__":
                                 norm_std=[0.27452907, 0.26994488, 0.28498003])
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         height, width = image.shape[0], image.shape[1]
-        for bbox, labelName in zip(transformed_bboxes, transformed_class_labels):
+        for bbox in transformed_class_labels:
             xmin = round(bbox[0] * width)
             ymin = round(bbox[1] * height)
             xmax = round(bbox[2] * width)
             ymax = round(bbox[3] * height)
-
+            labelName = int(bbox[4])
             if xmax <= xmin or ymax <= ymin:
                 logger.error("{} ... No bbox".format(image_path[0]))
             else:
