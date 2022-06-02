@@ -6,7 +6,7 @@ import torch
 
 
 class DataPrefetcherDet:
-    def __init__(self, loader):
+    def __init__(self, loader, device):
         """
         Function: 数据提前加载
             DataPrefetcher is inspired by code of following file:
@@ -23,21 +23,23 @@ class DataPrefetcherDet:
             # （2）预读取操作必须在另一个stream上进行data prefetch。
             # dataloader必须设置pin_memory=True来满足第一个条件。
         :param loader: dataloader类的实例
+        :param device: GPU设备
         """
         self.loader = iter(loader)
+        self.dataset = loader.dataset
+        self.device = device
         #  CUDA流表示一个GPU操作队列,该队列中的操作将以添加到流中的先后顺序而依次执行。
         #  可以将一个流看做是GPU上的一个任务,不同任务可以并行执行。
         self.stream = torch.cuda.Stream()  # 新开cuda stream来拷贝tensor到gpu。
-        self.input_cuda = self._input_cuda_for_image    # for image, bboxes, labels
+        self.input_cuda = self._input_cuda_for_image    # for image, labels
         self.record_stream = DataPrefetcherDet._record_stream_for_image
         self.preload()
 
     def preload(self):
         try:
-            self.next_images, self.next_bboxes, self.next_labels, self.next_paths = next(self.loader)
-            self.next_labels = torch.tensor(self.next_labels)
+            self.next_images, self.next_labels, self.next_paths = next(self.loader)
         except StopIteration:
-            self.next_images, self.next_bboxes, self.next_labels , self.next_paths = None, None, None, None
+            self.next_images, self.next_labels , self.next_paths = None, None, None
             return
 
         with torch.cuda.stream(self.stream):
@@ -46,22 +48,19 @@ class DataPrefetcherDet:
     def next(self):
         torch.cuda.current_stream().wait_stream(self.stream)
         image = self.next_images
-        bboxes = self.next_bboxes
         labels = self.next_labels
         path = self.next_paths
         if image is not None:
             self.record_stream(image)
-        if bboxes is not None:
-            self.record_stream(bboxes)
         if labels is not None:
-            self.record_stream(labels)
+            for label in labels:
+                self.record_stream(label)
         self.preload()
-        return image, bboxes, labels, path
+        return image, labels, path
 
     def _input_cuda_for_image(self):
-        self.next_images = self.next_images.cuda(non_blocking=True)
-        self.next_bboxes = self.next_bboxes.cuda(non_blocking=True)
-        self.next_labels = self.next_labels.cuda(non_blocking=True)
+        self.next_images = self.next_images.cuda(device=self.device, non_blocking=True)
+        self.next_labels = [label.cuda(device=self.device, non_blocking=True) for label in self.next_labels]
 
     @staticmethod
     def _record_stream_for_image(input):
@@ -300,67 +299,3 @@ class DataPrefetcherSeg:
     @staticmethod
     def _record_stream_for_image(input):
         input.record_stream(torch.cuda.current_stream())
-
-
-# class DataPrefetcherDet:
-#     def __init__(self, loader):
-#         """
-#         Function: 提前加载数据
-#             DataPrefetcher is inspired by code of following file:
-#             https://github.com/NVIDIA/apex/blob/master/examples/imagenet/main_amp.py
-#             It could speedup your pytorch dataloader. For more information, please check
-#             https://github.com/NVIDIA/apex/issues/304#issuecomment-493562789.
-#             在读取每次数据喂给网络的时候，预读取下一次迭代需要的数据
-#             用于cpu-》gpu提速：
-#             默认情况下，pytorch将所有涉及到GPU的操作（比如内核操作，cpu->gpu, gpu->cpu)
-#             都排入同一个stream（default stream）中， 并对同一个流的操作序列化，他们永远不会并行。
-#             如果想并行，两个操作必须位于不同的stream中。
-#             而前向传播位于default stream中，要想将一个batch数据的预读取（涉及cpu->gpu) 与当前batch的前向传播并行处理，
-#             就必须：
-#             （1）cpu上的数据batch必须pinned；
-#             （2）预读取操作必须在另外一个stream上进行data prefetch。
-#             dataloader必须设置pin_memory=True来满足第一个条件
-#         :param loader: dataloader的实例
-#         """
-#
-#         self.loader = iter(loader)
-#         # CUDA流表示一个GPU操作队列，该队列中的操作将以添加到流中的先后顺序而依次执行
-#         # 可以将一个流看作时GPU上的一个任务，不同的任务可以并行执行
-#         self.stream = torch.cuda.Stream()
-#         self.input_cuda = self._input_cuda_for_image
-#         self.record_stream = DataPrefetcher._record_stream_for_image
-#         self.preload()
-#
-#     def preload(self):
-#         try:
-#             self.next_input, self.next_target, self.img_info, self.next_id = next(self.loader)
-#         except StopIteration:
-#             self.next_input = None
-#             self.next_target = None
-#             self.next_id = None
-#             self.img_info = None
-#             return
-#
-#         with torch.cuda.stream(self.stream):
-#             self.input_cuda()
-#             self.next_target = self.next_target.cuda(non_blocking=True)
-#
-#     def next(self):
-#         torch.cuda.current_stream().wait_stream(self.stream)
-#         input = self.next_input
-#         target = self.next_target
-#         next_id = self.next_id
-#         img_info = self.img_info
-#         if input is not None:
-#             self.record_stream(input)
-#         if target is not None:
-#             target.record_stream(torch.cuda.current_stream())
-#         self.preload()
-#         return input, target, img_info, next_id
-#
-#     def _input_cuda_for_image(self):
-#         self.next_input = self.next_input.cuda(non_blocking=True)
-#
-#     @staticmethod
-#     def _record_stream_for_image(input):
-#         input.record_stream(torch.cuda.current_stream())
