@@ -96,3 +96,26 @@ def worker_init_reset_seed(worker_id):
     random.seed(seed)
     torch.set_rng_state(torch.manual_seed(seed).get_state())
     np.random.seed(seed)
+
+
+def detection_collate(batch):
+    """Custom collate fn for dealing with batches of images that have a different
+    number of associated object annotations (bounding boxes).
+
+    Arguments:
+        batch: (tuple) A tuple of tensor images and lists of annotations
+
+    Return:
+        A tuple containing:
+            1) (tensor) batch of images stacked on their 0 dim
+            2) (list of tensors) annotations for a given image are stacked on
+                                 0 dim
+    """
+    imgs = []
+    labels = []
+    paths = []
+    for sample in batch:
+        imgs.append(torch.FloatTensor(sample[0]))
+        labels.append(torch.FloatTensor(sample[1]))
+        paths.append(sample[2][0])
+    return torch.stack(imgs, 0), labels, paths
