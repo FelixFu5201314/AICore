@@ -13,6 +13,7 @@ import datetime
 import numpy as np
 from PIL import Image
 from loguru import logger
+import cv2
 
 import torch    # 深度学习相关库
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -102,7 +103,7 @@ class DetTrainer:
         model.to("cuda:{}".format(get_local_rank()))    # model to self.device
 
         logger.info("3. Optimizer Setting")
-        # self.optimizer = Registers.optims.get(self.exp.optimizer.type)(model=model, **self.exp.optimizer.kwargs)
+        self.optimizer = Registers.optims.get(self.exp.optimizer.type)(model=model, **self.exp.optimizer.kwargs)
 
         logger.info("4. Resume/FineTuning Setting ...")
         model = self._resume_train(model)
@@ -120,7 +121,8 @@ class DetTrainer:
         logger.info("init prefetcher, this might take one minute or less...")
         # to solve https://github.com/pytorch/pytorch/issues/11201
         torch.multiprocessing.set_sharing_strategy('file_system')
-        self.train_loader = DataPrefetcherDet(train_loader)
+        self.train_loader = DataPrefetcherDet(train_loader, device="cuda:{}".format(get_local_rank()))
+        # self.train_loader = DataPrefetcherDet(train_loader)
 
         logger.info("6. Loss Setting ... ")
         logger.info("Yolo loss in Model!!!!")
@@ -156,12 +158,12 @@ class DetTrainer:
         self.model.train()
 
         logger.info("9. Evaluator Setting ... ")
-        self.evaluator = Registers.evaluators.get(self.exp.evaluator.type)(
-            is_distributed=get_world_size() > 1,
-            dataloader=self.exp.evaluator.dataloader,
-            num_classes=self.exp.model.kwargs.num_classes,
-        )
-        self.train_metrics = MeterSegTrain()
+        # self.evaluator = Registers.evaluators.get(self.exp.evaluator.type)(
+        #     is_distributed=get_world_size() > 1,
+        #     dataloader=self.exp.evaluator.dataloader,
+        #     num_classes=self.exp.model.kwargs.num_classes,
+        # )
+        # self.train_metrics = MeterSegTrain()
         self.best_acc = 0
         logger.info("Setting finished, training start ......")
 
@@ -178,18 +180,27 @@ class DetTrainer:
     def _train_one_iter(self):
         iter_start_time = time.time()
 
-        inps, targets, path = self.train_loader.next()
-        # show img and mask
-        # Image.fromarray(denormalization(
-        #     inps[0].cpu().numpy(),
-        #     [0.45734706, 0.43338275, 0.40058118],
-        #     [0.23965294, 0.23532275, 0.2398498])    # 注意mean和std要和config.json中的一致
-        # ).save("/ai/data/image.png")
-        # import cv2
-        # cv2.imwrite(
-        #     "/ai/data/mask.png",
-        #     np.expand_dims(np.where(targets[0].cpu().numpy() == 1, 255, 0).astype(np.uint8), axis=2)
-        # )
+        images, labels, paths = self.train_loader.next()
+        # # show img and mask
+        # cv_image = denormalization(images[0].cpu().numpy(),[0.45289162, 0.43158466, 0.3984241], [0.2709828, 0.2679657, 0.28093508])    # 注意mean和std要和config.json中的一致
+        # height, width, _ = cv_image.shape
+        # label = labels[0].cpu().numpy()
+        # cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
+        # for bbox in label:
+        #     xmin = round(bbox[0] * width)
+        #     ymin = round(bbox[1] * height)
+        #     xmax = round(bbox[2] * width)
+        #     ymax = round(bbox[3] * height)
+        #     class_id = int(bbox[4])
+        #     if xmax <= xmin or ymax <= ymin:
+        #         logger.error("No bbox")
+        #         continue
+        #     cv2.rectangle(cv_image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 4)
+        #
+        #     font = cv2.FONT_HERSHEY_SIMPLEX
+        #     cv2.putText(cv_image,  self.train_loader.dataset.labels_id_name[str(class_id)], (xmin, ymin), font, 1, (0, 0, 255), 1)
+        # cv2.imwrite("/ai/data/{}".format(paths[0].split('/')[-1]), cv_image)
+
         inps = inps.to(self.data_type)
         # targets = targets.to(self.data_type)
         targets.requires_grad = False
