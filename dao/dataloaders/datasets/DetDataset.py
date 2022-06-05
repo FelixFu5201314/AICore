@@ -138,6 +138,8 @@ class DetDataset(Dataset):
         bboxes[:, 1] = ((y1 + y2) / 2) / padded_h   # bboxes[:, 1] = y1 / padded_h
         bboxes[:, 2] = (x2 - x1) / padded_w         # bboxes[:, 2] = x2 / padded_w
         bboxes[:, 3] = (y2 - y1) / padded_h         # bboxes[:, 3] = y2 / padded_h
+        # resize image
+        image = cv2.resize(image, self.img_size, interpolation=cv2.INTER_LINEAR)
 
         # 3. 使用albumentations增强图片
         if len(bboxes) == 1 and np.sum(bboxes) == 0 and self.preproc_pixel is not None:
