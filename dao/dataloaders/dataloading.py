@@ -99,8 +99,10 @@ def worker_init_reset_seed(worker_id):
 
 
 def detection_collate(batch):
-    """Custom collate fn for dealing with batches of images that have a different
-    number of associated object annotations (bounding boxes).
+    """
+    Function:
+        Custom collate fn for dealing with batches of images that have a different
+        number of associated object annotations (bounding boxes).
 
     Arguments:
         batch: (tuple) A tuple of tensor images and lists of annotations
@@ -108,14 +110,24 @@ def detection_collate(batch):
     Return:
         A tuple containing:
             1) (tensor) batch of images stacked on their 0 dim
-            2) (list of tensors) annotations for a given image are stacked on
-                                 0 dim
+            2) (list of tensors) annotations for a given image are stacked on 0 dim
     """
-    imgs = []
-    labels = []
-    paths = []
-    for sample in batch:
-        imgs.append(torch.FloatTensor(sample[0]))
-        labels.append(torch.FloatTensor(sample[1]))
-        paths.append(sample[2][0])
-    return torch.stack(imgs, 0), labels, paths
+    # 1. 获取单个batchsize的imgs，targets，paths
+    imgs, targets, paths = list(zip(*batch))
+
+    # 2. imgs处理
+    imgs = [torch.FloatTensor(img) for img in imgs]
+    imgs = torch.stack(imgs, 0)
+
+    # 3. targets处理
+    # Remove empty placeholder targets
+    targets = [torch.FloatTensor(boxes) for boxes in targets if boxes is not None]
+    # Add sample index to targets
+    for i, boxes in enumerate(targets):
+        boxes[:, 0] = i
+    targets = torch.cat(targets, 0)  # target type is tensor， shape（119，6），例如：[[0,...],[1, ...], ..., [19,...]
+
+    # 4. paths处理
+    paths = [p[0] for p in paths]
+
+    return imgs, targets, paths

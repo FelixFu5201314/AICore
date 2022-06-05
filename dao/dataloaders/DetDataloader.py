@@ -9,10 +9,8 @@ from loguru import logger
 import torch
 import torch.multiprocessing
 
-from dao.dataloaders.augments import get_transformer, get_transformerYOLO
-from dao.dataloaders.augments import TrainTransform, ValTransform
 from dao.dataloaders.dataloading import DataLoader, worker_init_reset_seed, detection_collate
-from dao.dataloaders.samplers import InfiniteSampler, YoloBatchSampler, BatchSampler
+from dao.dataloaders.samplers import InfiniteSampler, BatchSampler
 from dao.utils import wait_for_the_master, get_local_rank, get_world_size
 
 from dao.register import Registers
@@ -65,16 +63,6 @@ def DetDataloaderTrain(is_distributed=False, batch_size=None, num_workers=None, 
     return train_loader
 
 
-    # dataloader = torch.utils.data.DataLoader(
-    #     dataset=dataset,
-    #     batch_size=args.batch_size,
-    #     collate_fn=detection_collate,
-    #     num_workers=args.num_workers,
-    #     pin_memory=True,
-    #     sampler=torch.utils.data.distributed.DistributedSampler(dataset)
-    # )
-
-
 @Registers.dataloaders.register
 def DetDataloaderEval(is_distributed=False, batch_size=None, num_workers=None, dataset=None):
     """
@@ -105,15 +93,26 @@ def DetDataloaderEval(is_distributed=False, batch_size=None, num_workers=None, d
 
     # 3. dataloader的kwargs配置
     dataloader_kwargs = {"num_workers": num_workers, "pin_memory": True, "batch_size":batch_size}
+    dataloader_kwargs["collate_fn"] = detection_collate
 
     # 4. 生成Dataloader类， 具体看dataloading文件内容
     val_loader = torch.utils.data.DataLoader(valdataset, **dataloader_kwargs)
     return val_loader
 
 
+def denormalization(x, norm_mean, norm_std):
+    mean = np.array(norm_mean)
+    std = np.array(norm_std)
+    x = (((x.transpose(1, 2, 0) * std) + mean) * 255.).astype(np.uint8)
+    return x
+
+
 if __name__ == "__main__":
     from dao.dataloaders.augments import get_transformerYOLO, get_transformer
     from dotmap import DotMap
+    import numpy as np
+    import cv2
+
     dataloader_c = {
         "type": "DetDataloaderTrain",
         "dataset": {
@@ -127,7 +126,7 @@ if __name__ == "__main__":
             },
             "transforms": {
                 "kwargs": {
-                    "Resize": {"height": 416, "width": 416, "p": 1},
+                    # "Resize": {"height": 416, "width": 416, "p": 1},
                     "Normalize": {
                         "mean": [0.45289162, 0.43158466, 0.3984241],
                         "std": [0.2709828, 0.2679657, 0.28093508], "p": 1
@@ -148,6 +147,29 @@ if __name__ == "__main__":
         ** dataloader_c.kwargs
     )
     for images, labels, paths in det_d:
-        print(type(images))
-        print(type(labels))
-        print(type(paths))
+        images = images.numpy()
+        labels = labels.numpy()
+        for i in range(len(images)):
+            image = images[i]
+            image = denormalization(image, norm_mean=[0.45289162, 0.43158466, 0.3984241], norm_std=[0.2709828, 0.2679657, 0.28093508])
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            height, width = image.shape[0], image.shape[1]
+            bboxes = labels[np.where(labels[:, 0] == i)]
+            for bbox in bboxes[:, 1:]:
+                # dataset返回norm(cx,cy,w,h)
+                xmin = round((bbox[1] - bbox[3] / 2) * width)
+                ymin = round((bbox[2] - bbox[4] / 2) * height)
+                xmax = round((bbox[1] + bbox[3] / 2) * width)
+                ymax = round((bbox[2] + bbox[4] / 2) * height)
+                labelName = int(bbox[0])
+
+                if xmax <= xmin or ymax <= ymin:
+                    logger.error("No bbox")
+                    continue
+
+                cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 4)
+
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.putText(image, det_d.dataset.labels_id_name[str(labelName)], (xmin, ymin), font, 1, (0, 0, 255), 1)
+
+            cv2.imwrite("/ai/data/test_voc/{}".format(paths[i].split('/')[-1]), image)
