@@ -10,6 +10,7 @@ from .metricCls import MeterClsTrain
 from .metricCls import MeterClsEval
 from .metricCls import plot_confusion_matrix
 from .metricSeg import MeterSegTrain, MeterSegEval
+from .metricDet import MeterDetEval, MeterDetTrain
 
 
 # 2.多GPU工具    —— dataloader组件会引用
@@ -73,3 +74,5 @@ from .boxes import (
     xyxy2cxcywh,
 )
 
+# 12. YoloV3所需要函数
+from .detUtils import multi_gt_creator

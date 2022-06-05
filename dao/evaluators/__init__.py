@@ -12,3 +12,5 @@ from .ClsEvaluator import ClsEvaluator
 # 分割
 from .SegEvaluator import SegEvaluator
 
+# 目标检测
+from .DetEvaluator import DetEvaluator

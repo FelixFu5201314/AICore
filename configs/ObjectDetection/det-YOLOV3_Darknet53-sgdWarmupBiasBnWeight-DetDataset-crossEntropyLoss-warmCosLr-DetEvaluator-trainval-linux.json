@@ -19,8 +19,8 @@
         "amp": true,
         "occupy": false,
         "ema": true,
-
-        "multiscale_range": 5
+        "multi_scale": true,
+        "multiscale_range": [10, 20]
     },
     "model": {
         "type": "YOLOv3",
@@ -30,7 +30,7 @@
                 [12.48, 19.2], [31.36, 46.4], [46.4, 113.92],
                 [97.28, 55.04], [133.12, 127.36], [79.04, 224.0],
                 [301.12, 150.4], [172.16, 285.76], [348.16, 341.12]],
-            "num_classes": 80,
+            "num_classes": 20,
             "trainable": 0,
             "conf_thresh": 0.001,
             "nms_thresh": 0.50,
@@ -53,7 +53,7 @@
             "type": "DetDataset",
             "kwargs": {
                 "data_dir": "/ai/data/AIDatasets/ObjectDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/voc0712",
-                "image_set": "train.txt",
+                "image_set": "val_part.txt",
                 "in_channels": 3,
                 "image_suffix":".jpg",
                 "mask_suffix": ".txt"
@@ -70,7 +70,7 @@
         },
         "kwargs": {
             "num_workers": 8,
-            "batch_size": 16
+            "batch_size": 32
         }
     },
     "lr_scheduler": {
@@ -87,27 +87,29 @@
             "dataset": {
                 "type": "DetDataset",
                 "kwargs": {
-                    "data_dir": "/root/data/DAO/COCO",
-                    "image_set": "val2017",
+                    "data_dir": "/ai/data/AIDatasets/ObjectDetection/4AR6N-L546S-DQSM9-424ZM-N4DZ2/voc0712",
+                    "image_set": "val_part.txt",
                     "in_channels": 3,
-                    "input_size": [640, 640],
-                    "cache": false,
-                    "image_suffix":".jpg"
+                    "image_suffix":".jpg",
+                    "mask_suffix": ".txt"
 	            },
                 "transforms": {
-                    "kwargs": {
-                         "swap":[2, 0, 1],
-                         "legacy": false
+                   "kwargs": {
+                        "Resize": {"height": 416, "width": 416, "p": 1},
+                        "Normalize": {
+                        "mean": [0.45289162, 0.43158466, 0.3984241],
+                        "std": [0.2709828, 0.2679657, 0.28093508], "p": 1
                     }
-            }
+                    }
+                }
             },
             "kwargs": {
-                "num_workers": 8,
-                "batch_size": 16
+                "num_workers": 0,
+                "batch_size": 1
             }
         },
         "kwargs": {
-            "img_size": [640, 640],
+            "val_size": 416,
             "confthre": 0.5,
             "nmsthre": 0.5
         }

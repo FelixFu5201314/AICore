@@ -2,80 +2,55 @@
 # @auther:FelixFu
 # @Date: 2021.4.14
 # @github:https://github.com/felixfu520
-import os
-import time
 import numpy as np
-import torch
-import itertools
-import matplotlib.pyplot as plt
 import functools
 from collections import defaultdict, deque
 
-
 import torch
+
+from .metrics import AverageMeter
+
+
 __all__ = ['MeterDetTrain', 'MeterDetEval', 'MeterBuffer']
 
 
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-    def __init__(self):
-        self.initialized = False
-        self.val = None
-        self.avg = None
-        self.sum = None
-        self.count = None
-
-    def initialize(self, val, weight):
-        self.val = val
-        self.avg = val
-        self.sum = np.multiply(val, weight)
-        self.count = weight
-        self.initialized = True
-
-    def update(self, val, weight=1):
-        if not self.initialized:
-            self.initialize(val, weight)
-        else:
-            self.add(val, weight)
-
-    def add(self, val, weight):
-        self.val = val
-        self.sum = np.add(self.sum, np.multiply(val, weight))
-        self.count = self.count + weight
-        self.avg = self.sum / self.count
-
-    @property
-    def value(self):
-        return self.val
-
-    @property
-    def average(self):
-        return np.round(self.avg, 5)
-
-
 class MeterDetTrain(object):
-    """
-    监控data_time, batch_time, total_loss, lr
-    """
     def __init__(self):
+        """
+        Function:  监控data_time, batch_time,lr, total_loss, conf_loss, cls_loss, box_loss, iou_loss
+        """
         self.reset_metrics()
         self.lr = 0
 
-    def update_metrics(self, data_time=0, batch_time=0, total_loss=0, lr=0):
+    def update_metrics(self, data_time=0, batch_time=0, lr=0,
+                       total_loss=0, conf_loss=0, cls_loss=0, box_loss=0, iou_loss=0):
+        """
+        Function:  更新data_time, batch_time,lr, total_loss, conf_loss, cls_loss, box_loss, iou_loss
+        """
         self.batch_time.update(batch_time)
         self.data_time.update(data_time)
-        self.total_loss.update(total_loss)
         self.lr = lr
 
+        self.total_loss.update(total_loss)
+        self.conf_loss.update(conf_loss)
+        self.cls_loss.update(cls_loss)
+        self.box_loss.update(box_loss)
+        self.iou_loss.update(iou_loss)
+
     def reset_metrics(self):
-        """重置metrics
+        """
+        Function: 重置metrics
             1、训练时间：batch_time
             2、读取数据时间：data_time
-            3、损失值：total_loss
+            3、损失值：total_loss, conf_loss, box_loss, iou_loss
         """
         self.batch_time = AverageMeter()    # 训练时间
-        self.data_time = AverageMeter()  # 读取数据时间
+        self.data_time = AverageMeter()     # 读取数据时间
         self.total_loss = AverageMeter()    # 损失值
+        self.conf_loss = AverageMeter()     # 置信度
+        self.box_loss = AverageMeter()      # bbox
+        self.iou_loss = AverageMeter()      # iou
+        self.cls_loss = AverageMeter()      # cls
 
 
 class MeterDetEval(object):
@@ -142,6 +117,7 @@ class MeterDetEval(object):
         area_union = area_pred + area_lab - area_inter
         assert (area_inter <= area_union).all(), "Intersection area should be smaller than Union area"
         return area_inter.cpu().numpy(), area_union.cpu().numpy()
+
 
 class AverageMeter2:
     """Track a series of values and provide access to smoothed values over a

@@ -14,6 +14,7 @@ import numpy as np
 from PIL import Image
 from loguru import logger
 import cv2
+import random
 
 import torch    # 深度学习相关库
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -31,6 +32,7 @@ from dao.utils import (       # 导入Train util库
     EMA,                # 指数移动平均
     is_parallel,        # 是否时多卡模型
     MeterSegTrain,      # 训练评价指标
+    MeterDetEval, MeterDetTrain,
     denormalization,    # 反归一化
     get_palette,        # 获得画板颜色,颜色版共num_classes
     colorize_mask,      # 为mask图，填充颜色
@@ -38,6 +40,7 @@ from dao.utils import (       # 导入Train util库
     DataPrefetcherDet,  # 数据预加载
     all_reduce_norm,    # BN 参数进行多卡同步
     get_rank, get_local_rank, get_world_size,  # 导入分布式库
+    multi_gt_creator
 )
 
 
@@ -158,12 +161,12 @@ class DetTrainer:
         self.model.train()
 
         logger.info("9. Evaluator Setting ... ")
-        # self.evaluator = Registers.evaluators.get(self.exp.evaluator.type)(
-        #     is_distributed=get_world_size() > 1,
-        #     dataloader=self.exp.evaluator.dataloader,
-        #     num_classes=self.exp.model.kwargs.num_classes,
-        # )
-        # self.train_metrics = MeterSegTrain()
+        self.evaluator = Registers.evaluators.get(self.exp.evaluator.type)(
+            is_distributed=get_world_size() > 1,
+            dataloader=self.exp.evaluator.dataloader,
+            num_classes=self.exp.model.kwargs.num_classes,
+        )
+        self.train_metrics = MeterDetTrain()
         self.best_acc = 0
         logger.info("Setting finished, training start ......")
 
@@ -173,6 +176,7 @@ class DetTrainer:
         :return:
         """
         logger.info("---> start train epoch{}".format(self.epoch + 1))
+
 
     def _before_iter(self):
         pass
@@ -201,20 +205,39 @@ class DetTrainer:
         #     cv2.putText(cv_image,  self.train_loader.dataset.labels_id_name[str(class_id)], (xmin, ymin), font, 1, (0, 0, 255), 1)
         # cv2.imwrite("/ai/data/{}".format(paths[0].split('/')[-1]), cv_image)
 
-        inps = inps.to(self.data_type)
-        # targets = targets.to(self.data_type)
-        targets.requires_grad = False
+        # 读取images和bboxes_labels
+        inps = images.to(self.data_type)
+        targets = labels
+        # targets = [label.to(self.data_type) for label in labels]
+
+        # multi-scale trick
+        if (self.iter+1) % self.exp.trainer.log_per_iter == 0 and self.exp.trainer.multi_scale:
+            # randomly choose a new size
+            self.train_size = random.randint(self.exp.trainer.multiscale_range[0], self.exp.trainer.multiscale_range[1]) * 32
+            self.model.set_grid(self.train_size)
+            # interpolate
+            inps = torch.nn.functional.interpolate(inps, size=self.train_size, mode='bilinear', align_corners=False)
+        else:
+            self.train_size = inps[0].shape[1]
+            self.model.set_grid(self.train_size)
+
+        targets = [label.tolist() for label in targets]
+        targets = multi_gt_creator(
+            input_size=self.train_size,
+            strides=self.model.stride,
+            label_lists=targets,
+            anchor_size=self.exp.model.kwargs.anchor_size
+        )
+        targets = torch.tensor(targets).to(device="cuda:{}".format(get_local_rank())).to(self.data_type)
         data_end_time = time.time()
 
         with torch.cuda.amp.autocast(enabled=self.parser.amp):    # 开启auto cast的context manager语义（model+loss）
-            outputs = self.model(inps)
-            if "aux_params" in self.exp.model.kwargs:
-                loss = self.loss(outputs[0], targets)  # PSP(master_branch)损失， 其他类似
-                loss += self.loss_aux(outputs[1], targets) * 0.4  # FCN损失
-            else:
-                loss = self.loss(outputs, targets)
+            conf_loss, cls_loss, box_loss, iou_loss = self.model(inps, targets)
+            # compute loss
+            total_loss = conf_loss + cls_loss + box_loss + iou_loss
+
         self.optimizer.zero_grad()   # 梯度清零
-        self.scaler.scale(loss).backward()   # 反向传播；Scales loss. 为了梯度放大
+        self.scaler.scale(total_loss).backward()   # 反向传播；Scales loss. 为了梯度放大
         # scaler.step() 首先把梯度的值unscale回来.
         # 如果梯度的值不是infs或者NaNs, 那么调用optimizer.step()来更新权重,
         # 否则，忽略step调用，从而保证权重不更新（不被破坏）
@@ -232,30 +255,48 @@ class DetTrainer:
         self.train_metrics.update_metrics(
             data_time=data_end_time - iter_start_time,
             batch_time=iter_end_time - iter_start_time,
-            total_loss=loss.item(),
-            lr=lr
+            lr=lr,
+            total_loss=total_loss.item(),
+            conf_loss=conf_loss.item(),
+            cls_loss=cls_loss.item(),
+            box_loss=box_loss.item(),
+            iou_loss=iou_loss.item()
         )
 
     def _after_iter(self):
         """
+        Function:
+
         `after_iter` contains two parts of logic:
             * log information
             * reset setting of resize
         """
-        # log needed information
         if (self.iter + 1) % self.exp.trainer.log_per_iter == 0 and get_rank() == 0:
-            # TODO check ETA logic
+            # 剩余时间（不包括evaluator过程），并获得输出str
             left_iters = self.max_iter * self.max_epoch - (self.progress_in_iter + 1)
             eta_seconds = (self.train_metrics.batch_time.avg + self.train_metrics.data_time.avg) * left_iters
             eta_str = "ETA: {}".format(datetime.timedelta(seconds=int(eta_seconds)))
 
-            progress_str = f"epoch: {self.epoch + 1}/{self.max_epoch}, iter: {self.iter + 1}/{self.max_iter} "
-            loss_str = "loss:{:2f}".format(self.train_metrics.total_loss.avg)
+            # 单次iter时间
             time_str = "iter time:{:2f}, data time:{:2f}".format(self.train_metrics.batch_time.avg, self.train_metrics.data_time.avg)
 
+            # 损失str
+            loss_str = "total_loss:{:2f}|conf_loss:{:2f}|cls_loss:{:2f}|box_loss:{:2f}|iou_loss:{:2f}".format(
+                self.train_metrics.total_loss.avg,
+                self.train_metrics.conf_loss.avg,
+                self.train_metrics.cls_loss.avg,
+                self.train_metrics.box_loss.avg,
+                self.train_metrics.iou_loss.avg
+            )
+
+            # 迭代次数str
+            progress_str = f"epoch: {self.epoch + 1}/{self.max_epoch}, iter: {self.iter + 1}/{self.max_iter} "
+
+            # 输出日志
             logger.info(
-                "{}, mem: {:.0f}Mb, {}, {}, lr: {:.3e}, {}".format(
+                "{}, {}, mem: {:.0f}Mb, {}, {}, lr: {:.3e}, {}".format(
                     progress_str,
+                    "inputSize:{}".format(self.train_size),
                     gpu_mem_usage(),
                     time_str,
                     loss_str,
@@ -263,7 +304,11 @@ class DetTrainer:
                     eta_str
                 )
             )
-            self.tblogger.add_scalar('train/loss', self.train_metrics.total_loss.avg, self.progress_in_iter)
+            self.tblogger.add_scalar('train/total_loss', self.train_metrics.total_loss.avg, self.progress_in_iter)
+            self.tblogger.add_scalar('train/conf_loss', self.train_metrics.conf_loss.avg, self.progress_in_iter)
+            self.tblogger.add_scalar('train/cls_loss', self.train_metrics.cls_loss.avg, self.progress_in_iter)
+            self.tblogger.add_scalar('train/box_loss', self.train_metrics.box_loss.avg, self.progress_in_iter)
+            self.tblogger.add_scalar('train/iou_loss', self.train_metrics.iou_loss.avg, self.progress_in_iter)
             self.tblogger.add_scalar('train/lr', self.train_metrics.lr, self.progress_in_iter)
             self.train_metrics.reset_metrics()
 
@@ -286,20 +331,25 @@ class DetTrainer:
             evalmodel = self.model
             if is_parallel(evalmodel):
                 evalmodel = evalmodel.module
+        # set eval mode
+        evalmodel.trainable = False
+        evalmodel.set_grid(self.exp.evaluator.kwargs.val_size)
+        evalmodel.eval()
+        mAP, aps = self.evaluator.evaluate(evalmodel, get_world_size() > 1, device="cuda:{}".format(get_local_rank()),
+                                           output_dir=self.output_dir)
 
-        pixAcc, mIoU, Class_IoU = self.evaluator.evaluate(evalmodel, get_world_size() > 1, device="cuda:{}".format(get_local_rank()))
         self.model.train()
-        logger.info("pixAcc:{}, mIoU:{}, Class_IoU:{}".format(pixAcc, mIoU, Class_IoU))
+
+        logger.info("mAP:{}, APs:{}".format(mAP, aps))
 
         if get_rank() == 0:
-            self.tblogger.add_scalar("val/pixAcc", pixAcc, self.epoch + 1)
-            self.tblogger.add_scalar("val/mIoU", mIoU, self.epoch + 1)
-            for k, v in Class_IoU.items():
-                self.tblogger.add_scalar("val_detail/{} IoU".format(k), v, self.epoch + 1)
+            self.tblogger.add_scalar("val/mAP", mAP, self.epoch + 1)
+            for k, v in aps.items():
+                self.tblogger.add_scalar("val_detail/{} AP".format(k), v, self.epoch + 1)
 
         synchronize()
-        self._save_ckpt("last_epoch", mIoU > self.best_acc)
-        self.best_acc = max(self.best_acc, mIoU)
+        self._save_ckpt("last_epoch", mAP > self.best_acc)
+        self.best_acc = max(self.best_acc, mAP)
 
     def _save_ckpt(self, ckpt_name, update_best_ckpt=False):
         if get_rank() == 0:

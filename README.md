@@ -1,5 +1,14 @@
 # AI 核心库
 
+### 扩充步骤
+
+一个完整的训练包括dataset, dataloader, model, evaluator,loss,optimizer,scheduler,trainer等组件，因此，完成一个训练需要把这些组件都写一遍，在AICore这个项目中，编写顺序是：
+
+1. dataset：依照参考代码，确定数据的输出格式和增强方式，编写Dataset类
+2. dataloader: 依照参考代码，确定dataloader的所有参数，包括collect_fn等参数，编写Dataloader类
+3. model: 依照参考代码，确定model的构造函数和forward函数返回值，编写model类
+4. trainer：依照参考代码和已有trainer过程，编写trainer代码，并补充所需组件
+
 ## 一、项目由来
 
 在**工业流程**中，深度学习应用过程包括：
@@ -301,7 +310,7 @@ CUDA_VISIBLE_DEVICES=0  python main.py --num_machines 1 --machine_rank 0 --devic
         mask_suffix:str 可接受的图片后缀
 ```
 
-##### **MvTec异常检测数据集**
+##### **AnomalyDetection**
 
 ```
         异常检测数据集，（MVTecDataset类型）
@@ -344,8 +353,31 @@ normalized[x_center,y_center,width,height]->[0.4046875, 0.8614583,0.503125,0.243
 
 我采用的是albumentations格式作为ObjectDetection的bbox数据格式, 即：
 normalized[x_min,y_min,x_max,y_max, class_id] ->[0.153125,0.71875,0.65625,0.9625,15]
+然后dataset读取的格式为yolo格式，即：
+normalized[cx,cy,w,h], Dataset的__getitem__返回为image:ndarray(c,h,w), labels:ndarray normalized[batchSize_id, class_id,cx,cy,w,h], image_path:(str, str)
 
 
+ Function: 目标检测数据集
+
+        data_dir:str  数据集文件夹路径，文件夹要求如下
+            |-dataset
+                |- images   存放所有图片的文件夹
+                    |-图片
+                |- labels   存放所有标注文件的图片
+                    |-txt文件
+                |- train.txt    训练集相对路径
+                |- val.txt      验证集相对路径
+                |- test.txt     测试集相对路径
+                |- labels.txt   标签
+
+        image_set:str "train.txt or val.txt or test.txt"
+        in_channels:int  输入图片的通道数，目前只支持1和3通道
+        input_size:tuple 输入图片的HW, 当需要cache image时需要，此处用不到
+        preproc:albumentations.Compose 对图片进行预处理
+        preproc_pixel:albumentations.Compose 对图片进行预处理, 针对COCO数据集中无bbox情况
+        cache:bool 是否对图片进行内存缓存
+        images_suffix:str 可接受的图片后缀
+        mask_suffix:str 可接受的图片后缀
 ```
 
 

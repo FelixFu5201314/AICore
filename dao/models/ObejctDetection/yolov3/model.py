@@ -243,33 +243,33 @@ class YOLOv3(nn.Module):
 
         return topk_bboxes, topk_scores, topk_cls_inds
 
-    def forward(self, x, target=None):
+    def forward(self, x, target=None):  # x:torch.Size([32, 3, 416, 416]), VOC
         # backbone
-        c3, c4, c5 = self.backbone(x)
+        c3, c4, c5 = self.backbone(x)   # c3:torch.Size([32, 256, 52, 52]), c4:torch.Size([32, 512, 26, 26]), c5:torch.Size([32, 1024, 13, 13])
 
         # FPN, 多尺度特征融合
-        p5 = self.conv_set_3(c5)
-        p5_up = F.interpolate(self.conv_1x1_3(p5), scale_factor=2.0, mode='bilinear', align_corners=True)
+        p5 = self.conv_set_3(c5)    # torch.Size([32, 512, 13, 13])
+        p5_up = F.interpolate(self.conv_1x1_3(p5), scale_factor=2.0, mode='bilinear', align_corners=True)   # torch.Size([32, 256, 26, 26])
 
-        p4 = torch.cat([c4, p5_up], 1)
-        p4 = self.conv_set_2(p4)
-        p4_up = F.interpolate(self.conv_1x1_2(p4), scale_factor=2.0, mode='bilinear', align_corners=True)
+        p4 = torch.cat([c4, p5_up], 1)  # torch.Size([32, 768, 26, 26])
+        p4 = self.conv_set_2(p4)    # torch.Size([32, 256, 26, 26])
+        p4_up = F.interpolate(self.conv_1x1_2(p4), scale_factor=2.0, mode='bilinear', align_corners=True)   # torch.Size([32, 128, 52, 52])
 
-        p3 = torch.cat([c3, p4_up], 1)
-        p3 = self.conv_set_1(p3)
+        p3 = torch.cat([c3, p4_up], 1)  # torch.Size([32, 384, 52, 52])
+        p3 = self.conv_set_1(p3)    # torch.Size([32, 128, 52, 52])
 
         # head
         # s = 32, 预测大物体
-        p5 = self.extra_conv_3(p5)
-        pred_3 = self.pred_3(p5)
+        p5 = self.extra_conv_3(p5)  # torch.Size([32, 1024, 13, 13])
+        pred_3 = self.pred_3(p5)    # torch.Size([32, 75, 13, 13])
 
         # s = 16, 预测中物体
-        p4 = self.extra_conv_2(p4)
-        pred_2 = self.pred_2(p4)
+        p4 = self.extra_conv_2(p4)  # torch.Size([32, 512, 26, 26])
+        pred_2 = self.pred_2(p4)    # torch.Size([32, 75, 26, 26])
 
         # s = 8, 预测小物体
-        p3 = self.extra_conv_1(p3)
-        pred_1 = self.pred_1(p3)
+        p3 = self.extra_conv_1(p3)  # torch.Size([32, 256, 52, 52])
+        pred_1 = self.pred_1(p3)    # torch.Size([32, 75, 52, 52])
 
         preds = [pred_1, pred_2, pred_3]    # 网络输出
         total_conf_pred = []    # 所有的置信度
@@ -298,9 +298,9 @@ class YOLOv3(nn.Module):
             HW += H_ * W_
 
         # 将所有结果沿着H*W这个维度拼接
-        conf_pred = torch.cat(total_conf_pred, dim=1)
-        cls_pred = torch.cat(total_cls_pred, dim=1)
-        txtytwth_pred = torch.cat(total_txtytwth_pred, dim=1)
+        conf_pred = torch.cat(total_conf_pred, dim=1)   # torch.Size([32, 10647, 1])
+        cls_pred = torch.cat(total_cls_pred, dim=1)  # torch.Size([32, 10647, 20])
+        txtytwth_pred = torch.cat(total_txtytwth_pred, dim=1)   # torch.Size([32, 3549, 12])
 
         # train or test
         if self.trainable == 0:
