@@ -43,7 +43,8 @@ def get_transformerYOLO(transform_params):
     return albumentations.Compose(
         trans_albumentations,
         bbox_params=albumentations.BboxParams(
-            format='albumentations',
+            # format='albumentations',
+            format='yolo',
             label_fields=['class_labels'],
             min_area=0.0,
             min_visibility=0.0

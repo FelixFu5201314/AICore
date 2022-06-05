@@ -5,14 +5,47 @@
 # @Copy From:
 
 import os
+import cv2
 import numpy as np
 from PIL import Image
-import cv2
 from loguru import logger
 
 from torch.utils.data import Dataset
+import torch.nn.functional as F
 
 from dao.register import Registers
+
+
+def pad_to_square(img, pad_value=0):
+    """
+    Function：将img图像使用pad_value值填充，填充到（ max(w, h) ， max(w, h))大小
+    :param img: ndarray
+    :param pad_value:int
+    :return:
+    """
+    h, w, c = img.shape
+    dim_diff = np.abs(h - w)
+    # (upper / left) padding and (lower / right) padding
+    pad1, pad2 = dim_diff // 2, dim_diff - dim_diff // 2
+    # Determine padding
+    # pad = (0, 0, pad1, pad2) if h <= w else (pad1, pad2, 0, 0)  # （w, w, h, h)
+    pad = ((pad1, pad2), (0, 0), (0, 0)) if h <= w else ((0, 0), (pad1, pad2), (0, 0))  # ((h,h),(w,w),(c,c))
+    # Add padding
+    # img = F.pad(img, pad, "constant", value=pad_value)
+    img = np.pad(img, pad, 'constant', constant_values=0)
+
+    return img, [pad[1][0], pad[1][1], pad[0][0],pad[0][1]] # pad:((h,h),(w,w),(c,c))-->（w, w, h, h)
+
+
+def resize(image, size):
+    """
+    Function：将image resize 到（size， size）大小
+    :param image:
+    :param size:
+    :return:
+    """
+    image = F.interpolate(image.unsqueeze(0), size=size, mode="nearest").squeeze(0)
+    return image
 
 
 @Registers.datasets.register
@@ -23,7 +56,7 @@ class DetDataset(Dataset):
                  preproc_pixel=None,
                  image_set="",
                  in_channels=1,
-                 input_size=(224, 224),
+                 input_size=(416, 416),
                  image_suffix=".jpg",
                  mask_suffix=".txt",
                  ):
@@ -77,9 +110,36 @@ class DetDataset(Dataset):
             transformed_class_labels:[n], class_id
             image_path:图片路径
         """
-        image, bboxes, class_labels, image_path = self.pull_item(index)  # image:ndarray, label:[(class_id,x,y,h,w),...], image_path:[string jpg,string label]
 
-        # 使用albumentations增强图片
+        # 1. 获得原始的图片，bboxes，labels和图片路径
+        image, bboxes, class_labels, image_path = self.pull_item(index)  # image:ndarray(h,w,c), label:ndarray[(x1,y1,x2,y2),...], class_labels:ndarray[class_id,...], image_path:[string jpg,string label]
+
+        # 2.将image保持比例，resize到max(height,width)大小
+        h_factor, w_factor, _ = image.shape
+        image, pad = pad_to_square(image, 0)  # pad:((h,h),(w,w),(c,c))
+        padded_h, padded_w, _ = image.shape
+        # Extract coordinates for unpadded + unscaled image，对未padding图片 解压 标签坐标
+        x1 = w_factor * bboxes[:, 0]  # 左上角x1
+        y1 = h_factor * bboxes[:, 1]  # 左上角y1
+        x2 = w_factor * bboxes[:, 2]  # 右下角x2
+        y2 = h_factor * bboxes[:, 3]  # 右下角y2
+        # Adjust for added padding
+        x1 += pad[0]  # 扩充左上角x1
+        y1 += pad[2]  # 扩充左上角y1
+        x2 += pad[1]  # 扩充左上角x2
+        y2 += pad[3]  # 扩充左上角y2
+        # (x1,y1,x2,y2)->norm(cx,cy,w,h)
+        # bboxes[:, 0] = x1 / padded_w
+        # bboxes[:, 1] = y1 / padded_h
+        # bboxes[:, 2] = x2 / padded_w
+        # bboxes[:, 3] = y2 / padded_h
+        bboxes[:, 0] = ((x1+x2)/2) / padded_w    # bboxes[:, 0] = x1 / padded_w
+        bboxes[:, 0] = ((x1 + x2) / 2) / padded_w  # bboxes[:, 0] = x1 / padded_w
+        bboxes[:, 1] = ((y1 + y2) / 2) / padded_h   # bboxes[:, 1] = y1 / padded_h
+        bboxes[:, 2] = (x2 - x1) / padded_w         # bboxes[:, 2] = x2 / padded_w
+        bboxes[:, 3] = (y2 - y1) / padded_h         # bboxes[:, 3] = y2 / padded_h
+
+        # 3. 使用albumentations增强图片
         if len(bboxes) == 1 and np.sum(bboxes) == 0 and self.preproc_pixel is not None:
             transformed = self.preproc_pixel(image=image)
             transformed_image = transformed['image']
@@ -91,11 +151,14 @@ class DetDataset(Dataset):
                 transformed_image = transformed['image']
                 transformed_bboxes = transformed['bboxes']
                 transformed_class_labels = transformed['class_labels']
+
+        # 4. 对albumentations增强的images和bboxes进行处理
         transformed_image = transformed_image.transpose(2, 0, 1)  # c, h, w
         transformed_bboxes = np.asarray(transformed_bboxes)
-        labels = np.hstack((transformed_bboxes, np.expand_dims(class_labels, axis=1)))  # 将bboxes和labels合并
+        labels_bboxes = np.hstack((np.expand_dims(class_labels, axis=1), transformed_bboxes))  # 将bboxes和labels合并
+        labels = np.zeros((len(labels_bboxes), 6))  # 添加一维，为了存放此张图片是那个batchsize的
+        labels[:, 1:] = labels_bboxes
         return transformed_image, labels, image_path
-
 
     def pull_item(self, index):
         """
@@ -110,7 +173,7 @@ class DetDataset(Dataset):
             if len(img.shape) == 2:  # COCO2017数据中存在灰度图像，000000559665.jpg，所以需要将这类图像转成BGR
                 img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
             img = img.copy()
-        return img, bbox, label, self.ids[index]
+        return img, np.array(bbox), np.array(label), self.ids[index]
 
     def _load_img(self, index):
         """
@@ -194,7 +257,9 @@ if __name__ == "__main__":
         "transforms": {
             "kwargs": {
                 # "Resize": {"height": 416, "width": 416, "p": 1},
-                # "Flip": {"p": 1},
+                "Flip": {"p": 1},
+                # "SmallestMaxSize":{"max_size":640, "p":1},
+                # "PadIfNeeded":{"min_height":416, "min_width":416, "p":1, "border_mode":0, "value":0},
                 "Normalize": {"mean": [0.45289162, 0.43158466, 0.3984241], "std": [0.2709828, 0.2679657, 0.28093508], "p": 1}
 
             }
@@ -205,17 +270,24 @@ if __name__ == "__main__":
     seg_d = DetDataset(preproc=transforms, **dataset_c.kwargs)
     for i in range(1000):
         transformed_image, transformed_class_labels, image_path = seg_d.__getitem__(i)
-
+        transformed_class_labels = transformed_class_labels[:, 1:]
         # 获得图片
         image = denormalization(transformed_image, norm_mean=[0.45289162, 0.43158466, 0.3984241], norm_std=[0.2709828, 0.2679657, 0.28093508])
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         height, width = image.shape[0], image.shape[1]
         for bbox in transformed_class_labels:
-            xmin = round(bbox[0] * width)
-            ymin = round(bbox[1] * height)
-            xmax = round(bbox[2] * width)
-            ymax = round(bbox[3] * height)
-            labelName = int(bbox[4])
+            # dataset返回norm(x1,y1,x2,y2)
+            # xmin = round(bbox[1] * width)
+            # ymin = round(bbox[2] * height)
+            # xmax = round(bbox[3] * width)
+            # ymax = round(bbox[4] * height)
+
+            # dataset返回norm(cx,cy,w,h)
+            xmin = round((bbox[1] - bbox[3]/2)*width)
+            ymin = round((bbox[2] - bbox[4]/2)*height)
+            xmax = round((bbox[1] + bbox[3]/2)*width)
+            ymax = round((bbox[2] + bbox[4]/2)*height)
+            labelName = int(bbox[0])
 
             if xmax <= xmin or ymax <= ymin:
                 logger.error("No bbox")
@@ -241,6 +313,7 @@ if __name__ == "__main__":
             "kwargs": {
                 # "Resize": {"height": 416, "width": 416, "p": 1},
                 # "Flip": {"p": 1},
+                # "PadIfNeeded": {"min_height": 416, "min_width": 416, "p": 1, "border_mode": 0, "value": 0},
                 "Normalize": {"mean": [0.47013634, 0.44689935, 0.4076691], "std": [0.27452907, 0.26994488, 0.28498003], "p": 1}
 
             }
@@ -252,6 +325,7 @@ if __name__ == "__main__":
     seg_d = DetDataset(preproc=transforms, preproc_pixel=transforms_pixel, **dataset_c.kwargs)
     for i in range(1000):
         transformed_image, transformed_class_labels, image_path = seg_d.__getitem__(i)
+        transformed_class_labels = transformed_class_labels[:, 1:]
 
         # 获得图片
         image = denormalization(transformed_image,
@@ -260,11 +334,18 @@ if __name__ == "__main__":
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         height, width = image.shape[0], image.shape[1]
         for bbox in transformed_class_labels:
-            xmin = round(bbox[0] * width)
-            ymin = round(bbox[1] * height)
-            xmax = round(bbox[2] * width)
-            ymax = round(bbox[3] * height)
-            labelName = int(bbox[4])
+            # dataset返回norm(x1,y1,x2,y2)
+            # xmin = round(bbox[1] * width)
+            # ymin = round(bbox[2] * height)
+            # xmax = round(bbox[3] * width)
+            # ymax = round(bbox[4] * height)
+
+            # dataset返回norm(cx,cy,w,h)
+            xmin = round((bbox[1] - bbox[3]/2)*width)
+            ymin = round((bbox[2] - bbox[4]/2)*height)
+            xmax = round((bbox[1] + bbox[3]/2)*width)
+            ymax = round((bbox[2] + bbox[4]/2)*height)
+            labelName = int(bbox[0])
             if xmax <= xmin or ymax <= ymin:
                 logger.error("{} ... No bbox".format(image_path[0]))
             else:
