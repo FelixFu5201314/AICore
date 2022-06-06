@@ -9,13 +9,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from backbone import (
+from .backbone import (
     darknet19, darknet53, darknet_tiny, darknet_light,
     cspdarknet53, cspdarknet_slim, cspdarknet_tiny,
     resnet18, resnet34, resnet50, resnet101, resnet152,
     resnext50_32x4d, resnext101_32x8d
 )
-from utils import build_targets, to_cpu, Conv
+from .utils import build_targets, to_cpu, Conv
 
 from dao.register import Registers
 
