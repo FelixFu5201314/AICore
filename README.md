@@ -1,14 +1,5 @@
 # AI 核心库
 
-### 扩充步骤
-
-一个完整的训练包括dataset, dataloader, model, evaluator,loss,optimizer,scheduler,trainer等组件，因此，完成一个训练需要把这些组件都写一遍，在AICore这个项目中，编写顺序是：
-
-1. dataset：依照参考代码，确定数据的输出格式和增强方式，编写Dataset类
-2. dataloader: 依照参考代码，确定dataloader的所有参数，包括collect_fn等参数，编写Dataloader类
-3. model: 依照参考代码，确定model的构造函数和forward函数返回值，编写model类
-4. trainer：依照参考代码和已有trainer过程，编写trainer代码，并补充所需组件
-
 ## 一、项目由来
 
 在**工业流程**中，深度学习应用过程包括：
@@ -426,7 +417,7 @@ normalized[cx,cy,w,h], Dataset的__getitem__返回为image:ndarray(c,h,w), label
 
 #### 4. ObjectDetection:[notes](notes/ObjectDetection/README.md)
 
-- YoloV3 [code ref](https://github.com/AICoreRef/yolov2-yolov3_PyTorch)
+- YoloV3 [code ref](https://github.com/AICoreRef/yolov2-yolov3_PyTorch)|[code ref2](https://github.com/AICoreRef/yolov3)
 - YOLOX [code ref](https://github.com/Megvii-BaseDetection/YOLOX)
 
 #### 5. AnomalyDetection:[notes](notes/AnomalyDetection/README.md)
@@ -450,7 +441,49 @@ normalized[cx,cy,w,h], Dataset的__getitem__返回为image:ndarray(c,h,w), label
 
 深度学习模型训练完毕后需要部署在嵌入式、主机、手机等设备上，部署过程请参考我的另一个项目[AIDeploy](https://github.com/FelixFu520/AIDeploy)
 
-## 七、Debug
+## 七、扩充步骤
+
+### 扩充步骤
+
+一个完整的训练包括dataset, dataloader, model, evaluator,loss,optimizer,scheduler,trainer等组件，因此，完成一个训练需要把这些组件都写一遍，在AICore这个项目中，编写顺序是：
+
+1. dataset：依照参考代码，确定数据的输出格式和增强方式，编写Dataset类
+
+2. dataloader: 依照参考代码，确定dataloader的所有参数，包括collect_fn等参数，编写Dataloader类
+
+3. model: 依照参考代码，确定model的构造函数和forward函数返回值，编写model类
+
+4. trainer：依照参考代码和已有trainer过程，编写trainer代码，并补充所需组件
+
+   ```
+       def run(self):
+           self._before_train()
+           # epochs
+           for self.epoch in range(self.start_epoch, self.max_epoch):
+               self._before_epoch()
+               # iters
+               for self.iter in range(self.max_iter):
+                   self._before_iter()
+                   self._train_one_iter()
+                   self._after_iter()
+               self._after_epoch()
+           self._after_train()
+          
+       
+       1.self._before_train()
+       	1.Logger Setting
+           2.Model Setting;
+           3.Optimizer Setting;
+           4.Resume setting;
+           5.DataLoader Setting;
+           6.Loss Setting;
+           7.Scheduler Setting;
+           8.Evaluator Setting;
+   ```
+
+   
+
+## 八、Debug
 
 #### 1. 问题1：
 

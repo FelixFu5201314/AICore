@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 # @Author:FelixFu
 # @Date: 2021.12.17
@@ -22,7 +21,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchsummary import summary
 
 from dao.register import Registers
-from dao.dataloaders.augments import get_transformer
+from dao.dataloaders.augments import get_transformer, get_transformerYOLO
 from dao.utils import (       # 导入Train util库
     setup_logger,       # 日志设置
     load_ckpt,          # 加载ckpt
@@ -52,6 +51,8 @@ class DetTrainer:
 
         self.start_time = datetime.datetime.now().strftime('%m-%d_%H-%M')  # 此次trainer的开始时间
         self.data_type = torch.float16 if self.parser.fp16 else torch.float32  # 使用的数据类型
+        assert self.data_type == torch.float32, \
+            logger.error("ObjectDetection dataType must be float32, because fp16 don't mplementation")
         self.scaler = torch.cuda.amp.GradScaler(enabled=self.parser.amp)  # 在训练开始之前实例化一个Grad Scaler对象
 
     def run(self):
@@ -100,8 +101,8 @@ class DetTrainer:
 
         logger.info("2. Model Setting ...")
         torch.cuda.set_device(get_local_rank())
-        model = Registers.det_models.get(self.exp.model.type)(device="cuda:{}".format(get_local_rank()),
-                                                              **self.exp.model.kwargs)
+        model = Registers.det_models.get(self.exp.model.type)(**self.exp.model.kwargs)
+        summary(model, input_size=(3, 416, 416), device="cpu") if self.parser.detail else None  # log torchsummary model
         logger.info("\n{}".format(model)) if self.parser.detail else None  # log model structure
         model.to("cuda:{}".format(get_local_rank()))    # model to self.device
 
@@ -172,11 +173,11 @@ class DetTrainer:
 
     def _before_epoch(self):
         """
-        每次epoch前的操作，例如multi-scale， 马赛克增强，等取消与否。
+        Function: 每次epoch前的操作
+            例如multi-scale， 马赛克增强，等取消与否。
         :return:
         """
         logger.info("---> start train epoch{}".format(self.epoch + 1))
-
 
     def _before_iter(self):
         pass
@@ -207,37 +208,23 @@ class DetTrainer:
 
         # 读取images和bboxes_labels
         inps = images.to(self.data_type)
-        targets = labels
-        # targets = [label.to(self.data_type) for label in labels]
+        targets = labels.to(self.data_type)
 
         # multi-scale trick
         if (self.iter+1) % self.exp.trainer.log_per_iter == 0 and self.exp.trainer.multi_scale:
             # randomly choose a new size
             self.train_size = random.randint(self.exp.trainer.multiscale_range[0], self.exp.trainer.multiscale_range[1]) * 32
-            self.model.set_grid(self.train_size)
             # interpolate
             inps = torch.nn.functional.interpolate(inps, size=self.train_size, mode='bilinear', align_corners=False)
         else:
             self.train_size = inps[0].shape[1]
-            self.model.set_grid(self.train_size)
-
-        targets = [label.tolist() for label in targets]
-        targets = multi_gt_creator(
-            input_size=self.train_size,
-            strides=self.model.stride,
-            label_lists=targets,
-            anchor_size=self.exp.model.kwargs.anchor_size
-        )
-        targets = torch.tensor(targets).to(device="cuda:{}".format(get_local_rank())).to(self.data_type)
         data_end_time = time.time()
 
         with torch.cuda.amp.autocast(enabled=self.parser.amp):    # 开启auto cast的context manager语义（model+loss）
-            conf_loss, cls_loss, box_loss, iou_loss = self.model(inps, targets)
-            # compute loss
-            total_loss = conf_loss + cls_loss + box_loss + iou_loss
+            loss, outputs = self.model(inps, targets)
 
         self.optimizer.zero_grad()   # 梯度清零
-        self.scaler.scale(total_loss).backward()   # 反向传播；Scales loss. 为了梯度放大
+        self.scaler.scale(loss).backward()   # 反向传播；Scales loss. 为了梯度放大
         # scaler.step() 首先把梯度的值unscale回来.
         # 如果梯度的值不是infs或者NaNs, 那么调用optimizer.step()来更新权重,
         # 否则，忽略step调用，从而保证权重不更新（不被破坏）
@@ -256,17 +243,12 @@ class DetTrainer:
             data_time=data_end_time - iter_start_time,
             batch_time=iter_end_time - iter_start_time,
             lr=lr,
-            total_loss=total_loss.item(),
-            conf_loss=conf_loss.item(),
-            cls_loss=cls_loss.item(),
-            box_loss=box_loss.item(),
-            iou_loss=iou_loss.item()
+            total_loss=loss.item()
         )
 
     def _after_iter(self):
         """
-        Function:
-
+        Function: iter后日志输出
         `after_iter` contains two parts of logic:
             * log information
             * reset setting of resize
@@ -281,13 +263,7 @@ class DetTrainer:
             time_str = "iter time:{:2f}, data time:{:2f}".format(self.train_metrics.batch_time.avg, self.train_metrics.data_time.avg)
 
             # 损失str
-            loss_str = "total_loss:{:2f}|conf_loss:{:2f}|cls_loss:{:2f}|box_loss:{:2f}|iou_loss:{:2f}".format(
-                self.train_metrics.total_loss.avg,
-                self.train_metrics.conf_loss.avg,
-                self.train_metrics.cls_loss.avg,
-                self.train_metrics.box_loss.avg,
-                self.train_metrics.iou_loss.avg
-            )
+            loss_str = "total_loss:{:2f}".format(self.train_metrics.total_loss.avg)
 
             # 迭代次数str
             progress_str = f"epoch: {self.epoch + 1}/{self.max_epoch}, iter: {self.iter + 1}/{self.max_iter} "
@@ -296,7 +272,7 @@ class DetTrainer:
             logger.info(
                 "{}, {}, mem: {:.0f}Mb, {}, {}, lr: {:.3e}, {}".format(
                     progress_str,
-                    "inputSize:{}".format(self.train_size),
+                    "Size:{}".format(self.train_size),
                     gpu_mem_usage(),
                     time_str,
                     loss_str,
@@ -305,11 +281,10 @@ class DetTrainer:
                 )
             )
             self.tblogger.add_scalar('train/total_loss', self.train_metrics.total_loss.avg, self.progress_in_iter)
-            self.tblogger.add_scalar('train/conf_loss', self.train_metrics.conf_loss.avg, self.progress_in_iter)
-            self.tblogger.add_scalar('train/cls_loss', self.train_metrics.cls_loss.avg, self.progress_in_iter)
-            self.tblogger.add_scalar('train/box_loss', self.train_metrics.box_loss.avg, self.progress_in_iter)
-            self.tblogger.add_scalar('train/iou_loss', self.train_metrics.iou_loss.avg, self.progress_in_iter)
             self.tblogger.add_scalar('train/lr', self.train_metrics.lr, self.progress_in_iter)
+            for i, layer_i in enumerate(self.model.metrics):
+                for k, v in layer_i.items():
+                    self.tblogger.add_scalar("train/loss_layer_{}/{}".format(i, k), round(v, 4))
             self.train_metrics.reset_metrics()
 
     def _after_epoch(self):
@@ -333,7 +308,6 @@ class DetTrainer:
                 evalmodel = evalmodel.module
         # set eval mode
         evalmodel.trainable = False
-        evalmodel.set_grid(self.exp.evaluator.kwargs.val_size)
         evalmodel.eval()
         mAP, aps = self.evaluator.evaluate(evalmodel, get_world_size() > 1, device="cuda:{}".format(get_local_rank()),
                                            output_dir=self.output_dir)
@@ -342,10 +316,10 @@ class DetTrainer:
 
         logger.info("mAP:{}, APs:{}".format(mAP, aps))
 
-        if get_rank() == 0:
-            self.tblogger.add_scalar("val/mAP", mAP, self.epoch + 1)
-            for k, v in aps.items():
-                self.tblogger.add_scalar("val_detail/{} AP".format(k), v, self.epoch + 1)
+        # if get_rank() == 0:
+        #     self.tblogger.add_scalar("val/mAP", mAP, self.epoch + 1)
+        #     for k, v in aps.items():
+        #         self.tblogger.add_scalar("val_detail/{} AP".format(k), v, self.epoch + 1)
 
         synchronize()
         self._save_ckpt("last_epoch", mAP > self.best_acc)
