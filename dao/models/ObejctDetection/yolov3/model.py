@@ -9,7 +9,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from backbone import darknet53
+from backbone import (
+    darknet19, darknet53, darknet_tiny, darknet_light,
+    cspdarknet53, cspdarknet_slim, cspdarknet_tiny,
+    resnet18, resnet34, resnet50, resnet101, resnet152,
+    resnext50_32x4d, resnext101_32x8d
+)
 from utils import build_targets, to_cpu, Conv
 
 from dao.register import Registers
@@ -17,7 +22,7 @@ from dao.register import Registers
 
 @Registers.det_models.register
 class YOLOv3(nn.Module):
-    def __init__(self, input_size=None, num_classes=20, anchor_size=None, ignore_thres=0.5):
+    def __init__(self, backbone="darknet53", input_size=None, num_classes=20, anchor_size=None, ignore_thres=0.5):
         """
         Function: 定义YoloV3网络
 
@@ -46,8 +51,35 @@ class YOLOv3(nn.Module):
         self.anchor_h = [0, 0, 0]
         self.metrics = [0, 0, 0]
 
-        # backbone darknet-53
-        self.backbone = darknet53(pretrained=False, hr=False)
+        # backbone
+        if backbone == "darknet53":
+            self.backbone = darknet53(pretrained=False, hr=False)
+        elif backbone == "darknet19":
+            self.backbone = darknet19(pretrained=False, hr=False)
+        elif backbone == "darknet_tiny":
+            self.backbone = darknet_tiny(pretrained=False, hr=False)
+        elif backbone == "darknet_light":
+            self.backbone = darknet_light(pretrained=False, hr=False)
+        elif backbone == "cspdarknet53":
+            self.backbone = cspdarknet53(pretrained=False, hr=False)
+        elif backbone == "cspdarknet_slim":
+            self.backbone = cspdarknet_slim(pretrained=False, hr=False)
+        elif backbone == "cspdarknet_tiny":
+            self.backbone = cspdarknet_tiny(pretrained=False, hr=False)
+        elif backbone == "resnet18":
+            self.backbone = resnet18(pretrained=False, hr=False)
+        elif backbone == "resnet34":
+            self.backbone = resnet34(pretrained=False, hr=False)
+        elif backbone == "resnet50":
+            self.backbone = resnet50(pretrained=False, hr=False)
+        elif backbone == "resnet101":
+            self.backbone = resnet101(pretrained=False, hr=False)
+        elif backbone == "resnet152":
+            self.backbone = resnet152(pretrained=False, hr=False)
+        elif backbone == "resnext50_32x4d":
+            self.backbone = resnext50_32x4d(pretrained=False, hr=False)
+        elif backbone == "resnext101_32x8d":
+            self.backbone = resnext101_32x8d(pretrained=False, hr=False)
 
         # s = 32
         self.conv_set_3 = nn.Sequential(
@@ -250,6 +282,7 @@ if __name__ == '__main__':
     model_kwargs = DotMap({
         "type": "YOLOv3",
         "kwargs": {
+            "backbone": "darknet53",
             "input_size": 416,
             'anchor_size': [[116, 90], [156, 198], [373, 326]],
             "num_classes": 80,
