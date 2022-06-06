@@ -12,6 +12,7 @@ import torch.multiprocessing
 from dao.dataloaders.dataloading import DataLoader, worker_init_reset_seed, detection_collate
 from dao.dataloaders.samplers import InfiniteSampler, BatchSampler
 from dao.utils import wait_for_the_master, get_local_rank, get_world_size
+from dao.dataloaders.augments import get_transformerYOLO, get_transformer
 
 from dao.register import Registers
 
@@ -108,7 +109,6 @@ def denormalization(x, norm_mean, norm_std):
 
 
 if __name__ == "__main__":
-    from dao.dataloaders.augments import get_transformerYOLO, get_transformer
     from dotmap import DotMap
     import numpy as np
     import cv2
