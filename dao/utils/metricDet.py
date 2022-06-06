@@ -17,40 +17,30 @@ __all__ = ['MeterDetTrain', 'MeterDetEval', 'MeterBuffer']
 class MeterDetTrain(object):
     def __init__(self):
         """
-        Function:  监控data_time, batch_time,lr, total_loss, conf_loss, cls_loss, box_loss, iou_loss
+        Function:  监控data_time, batch_time,lr, total_loss
         """
         self.reset_metrics()
         self.lr = 0
 
-    def update_metrics(self, data_time=0, batch_time=0, lr=0,
-                       total_loss=0, conf_loss=0, cls_loss=0, box_loss=0, iou_loss=0):
+    def update_metrics(self, data_time=0, batch_time=0, lr=0, total_loss=0):
         """
-        Function:  更新data_time, batch_time,lr, total_loss, conf_loss, cls_loss, box_loss, iou_loss
+        Function:  更新data_time, batch_time,lr, total_loss
         """
         self.batch_time.update(batch_time)
         self.data_time.update(data_time)
         self.lr = lr
-
         self.total_loss.update(total_loss)
-        self.conf_loss.update(conf_loss)
-        self.cls_loss.update(cls_loss)
-        self.box_loss.update(box_loss)
-        self.iou_loss.update(iou_loss)
 
     def reset_metrics(self):
         """
         Function: 重置metrics
             1、训练时间：batch_time
             2、读取数据时间：data_time
-            3、损失值：total_loss, conf_loss, box_loss, iou_loss
+            3、损失值：total_loss
         """
         self.batch_time = AverageMeter()    # 训练时间
         self.data_time = AverageMeter()     # 读取数据时间
         self.total_loss = AverageMeter()    # 损失值
-        self.conf_loss = AverageMeter()     # 置信度
-        self.box_loss = AverageMeter()      # bbox
-        self.iou_loss = AverageMeter()      # iou
-        self.cls_loss = AverageMeter()      # cls
 
 
 class MeterDetEval(object):
