@@ -53,14 +53,13 @@ class DataPrefetcherDet:
         if image is not None:
             self.record_stream(image)
         if labels is not None:
-            for label in labels:
-                self.record_stream(label)
+            self.record_stream(labels)
         self.preload()
         return image, labels, path
 
     def _input_cuda_for_image(self):
         self.next_images = self.next_images.cuda(device=self.device, non_blocking=True)
-        self.next_labels = [label.cuda(device=self.device, non_blocking=True) for label in self.next_labels]
+        self.next_labels = self.next_labels.cuda(device=self.device, non_blocking=True)
 
     @staticmethod
     def _record_stream_for_image(input):
