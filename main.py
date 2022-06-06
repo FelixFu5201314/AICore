@@ -8,8 +8,6 @@ import os
 import sys
 import argparse
 import random
-import shutil
-import time
 import json
 import warnings
 from dotmap import DotMap
@@ -20,8 +18,8 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))  # 添加dao库到sys.path中
-from dao import Registers, import_all_modules_for_register     # 获得所有组件的Register, 可以从Registers中获得组件
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))     # 添加dao库到sys.path中
+from dao import Registers, import_all_modules_for_register      # 获得所有组件的Register, 可以从Registers中获得组件
 import dao.utils.dist as comm
 from dao.utils import configure_nccl, configure_module, configure_omp
 
@@ -33,7 +31,7 @@ def make_parser():
     # 1.实验配置 & 实验优化
     parser.add_argument('--seed', default=0, type=int,
                         help='seed for initializing training. ')  # 随机数
-    parser.add_argument("--fp16", dest="fp16", default=True, action="store_true",
+    parser.add_argument("--fp16", dest="fp16", default=False, action="store_true",
                         help="Adopting mix precision training.")    # 是否使用fp16训练
     parser.add_argument("--cache", dest="cache", default=False, action="store_true",
                         help="Caching imgs to RAM for fast training.")  # 是否对数据进行缓存
@@ -41,7 +39,7 @@ def make_parser():
                         help="occupy GPU memory first for training.")   # 是否占据GPU显存
     parser.add_argument("--detail", dest="detail", default=False, action="store_true",
                         help="detail log info.")  # 是否显示详细的log信息
-    parser.add_argument("--amp", dest="amp", default=True, action="store_true",
+    parser.add_argument("--amp", dest="amp", default=False, action="store_true",
                         help="automatic mixed precision.")  # 是否使用混合精度
     parser.add_argument("--ema", dest="ema", default=True, action="store_true",
                         help="Exponential Moving Average.")  # 是否使用指数移动平均
