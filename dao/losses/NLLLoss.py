@@ -2,7 +2,7 @@
 # @Author:FelixFu
 # @Date: 2021.4.14
 # @GitHub:https://github.com/felixfu520
-# @Ref:https://pytorch.org/docs/stable/generated/torch.nn.MSELoss.html#torch.nn.MSELoss
+# @Ref:https://pytorch.org/docs/stable/generated/torch.nn.NLLLoss.html#torch.nn.NLLLoss
 
 import numpy as np
 
