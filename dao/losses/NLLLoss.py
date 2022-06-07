@@ -13,6 +13,8 @@ from dao.register import Registers
 
 @Registers.losses.register
 def NLLLoss_DAO(weight=None, reduction="mean"):
+    if weight is not None:
+        weight = torch.from_numpy(np.array(weight))
     return torch.nn.NLLLoss(weight=weight, reduction=reduction)
 
 
@@ -29,7 +31,7 @@ if __name__ == "__main__":
 
     # 2D loss example (used, for example, with image inputs)
     N, C = 5, 4
-    loss = NLLLoss_DAO()
+    loss = NLLLoss_DAO(weight=[0.1, 1, 1, 1])
     # input is of size N x C x height x width
     data = torch.randn(N, 16, 10, 10)
     conv = torch.nn.Conv2d(16, C, (3, 3))
