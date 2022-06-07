@@ -11,7 +11,7 @@ from dao.register import Registers
 
 
 @Registers.losses.register
-def BCELoss_DAO(weight=None, reduction='mean'):
+def BCELoss(weight=None, reduction='mean'):
     if weight is not None:
         weight = torch.from_numpy(np.array(weight))
     return nn.BCELoss(weight=weight,  reduction=reduction)
@@ -19,8 +19,9 @@ def BCELoss_DAO(weight=None, reduction='mean'):
 
 if __name__ == "__main__":
     m = nn.Sigmoid()
-    loss = BCELoss_DAO()
+    loss = BCELoss()
     input = torch.randn(3, requires_grad=True)
     target = torch.empty(3).random_(2)
     output = loss(m(input), target)
+    print(output)
     output.backward()
