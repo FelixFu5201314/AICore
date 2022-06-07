@@ -233,9 +233,9 @@ class DetEvaluator:
                  distributed=False,
                  half=False, device=None, output_dir=None,
                  save_pic=False,
-                 iou_thres=0.1,
-                 conf_thres=0.1,
-                 nms_thres=0.1
+                 iou_thres=0.5,
+                 conf_thres=0.5,
+                 nms_thres=0.5
                  ):
         tensor_type = torch.cuda.HalfTensor if half else torch.cuda.FloatTensor
         model = model.eval()

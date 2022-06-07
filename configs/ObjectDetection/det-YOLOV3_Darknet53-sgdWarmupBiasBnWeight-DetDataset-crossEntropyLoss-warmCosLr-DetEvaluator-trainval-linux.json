@@ -11,15 +11,15 @@
 
         "warmup_epochs": 5,
         "no_aug_epochs": 15,
-        "max_epochs": 300,
+        "max_epochs": 80,
 
-        "ckpt": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/ObjectDetection/yolov3/test/train_0606/best_ckpt.pth",
-        "resume": true,
+        "ckpt": "/ai/data/AILogs/4AR6N-L546S-DQSM9-424ZM-N4DZ2/ObjectDetection/yolov3/test/train_300/best_ckpt.pth",
+        "resume": false,
 
         "amp": true,
         "occupy": false,
         "ema": true,
-        "multi_scale": true,
+        "multi_scale": false,
         "multiscale_range": [10, 20]
     },
     "model": {
@@ -34,7 +34,7 @@
     "optimizer": {
         "type": "sgd_warmup_bias_bn_weight",
         "kwargs": {
-            "lr": 0.01,
+            "lr": 0.001,
             "weight_decay": 1e-4,
             "momentum": 0.9,
             "warmup_lr": 0,
