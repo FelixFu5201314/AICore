@@ -41,6 +41,7 @@ from .MarginRankingLoss import MarginRankingLoss_DAO
 from .Dice import DiceLoss_DAO
 
 # 10,
+from .EuclideanDistance import EuclideanDistance
 
 
 
