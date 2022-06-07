@@ -15,6 +15,10 @@ from .MSELoss import MSELoss_DAO
 # 3, 负对数似然损失 NLLLoss
 from .NLLLoss import NLLLoss_DAO
 
-# 4,
+# 4, 交叉熵损失 CrossEntropyLoss
+from .CrossEntropyLoss import CrossEntropyLoss
+from .CrossEntropyLoss import CrossEntropyLoss as CrossEntropyLoss_DAO
+
+
 
 from .CrossEntropyLoss import CrossEntropyLoss
