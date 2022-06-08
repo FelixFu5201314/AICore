@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# @Author:FelixFu
+# @Date: 2021.4.14
+# @GitHub:https://github.com/felixfu520
+# @Ref:https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html#torch.nn.CrossEntropyLoss
 import numpy as np
 import torch
 import torch.nn as nn
