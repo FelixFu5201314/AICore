@@ -40,13 +40,12 @@ def diceCoeff(pred, gt, epsilon=1, activation='sigmoid'):
 
 
 @Registers.losses.register
-class DiceLoss_DAO(_Loss):
+class DiceLoss(_Loss):
     __name__ = 'dice_loss'
 
-    def __init__(self, num_classes=1, reduction='mean', epsilon=1e-5, activation='sigmoid'):
-        super(DiceLoss_DAO, self).__init__()
+    def __init__(self, num_classes=1, epsilon=1e-5, activation='sigmoid'):
+        super(DiceLoss, self).__init__()
         self.epsilon = epsilon
-        self.activation = activation
         self.activation = activation
         self.num_classes = num_classes
 
@@ -60,16 +59,19 @@ class DiceLoss_DAO(_Loss):
 
 
 if __name__ == "__main__":
-    # 1. ---------------第一种情况：预测和标签完全一样
-    # shape = torch.Size([1, 3, 4, 4])
-    '''
-    1 0 0= bladder
-    0 1 0 = tumor
-    0 0 1= background 
-    '''
-    smooth_dice = DiceLoss_DAO(num_classes=3, activation="none")
+    N, C, H, W = 2, 3, 4, 4
+    loss = DiceLoss(num_classes=C)
+    # 1. 测试分割
+    input = torch.randn((N, C, H, W), requires_grad=True)
+    target = torch.empty((N, C, H, W)).random_(C)
+    output = loss(input, target)
+    print("input:{}".format(input))
+    print("target:{}".format(target))
+    print("output:{}".format(output))
+    torch.mean(output).backward()
 
-    pred = torch.Tensor([[
+    # 3. 测试分割(自定义数据)
+    input = [[
         [[0, 1, 1, 0],
          [1, 0, 0, 1],
          [1, 0, 0, 1],
@@ -81,8 +83,8 @@ if __name__ == "__main__":
         [[1, 0, 0, 1],
          [0, 1, 1, 0],
          [0, 1, 1, 0],
-         [1, 0, 0, 1]]]])
-    gt = torch.Tensor([[
+         [1, 0, 0, 1]]]]
+    target = [[
         [[0, 1, 1, 0],
          [1, 0, 0, 1],
          [1, 0, 0, 1],
@@ -94,33 +96,12 @@ if __name__ == "__main__":
         [[1, 0, 0, 1],
          [0, 1, 1, 0],
          [0, 1, 1, 0],
-         [1, 0, 0, 1]]]])
-    print('预测和标签完全一样,dice={:.4}'.format(1-smooth_dice(pred, gt)))
+         [1, 0, 0, 1]]]]
+    input = torch.tensor(input, dtype=torch.float32, requires_grad=True)
+    target = torch.tensor(target, dtype=torch.float32)
+    output = loss(input, target)
+    print("input:{}".format(input))
+    print("target:{}".format(target))
+    print("output:{}".format(output))
+    torch.mean(output).backward()
 
-    pred = torch.Tensor([[
-        [[0, 1, 1, 0],
-         [0, 0, 0, 0],
-         [0, 0, 0, 0],
-         [0, 0, 0, 0]],
-        [[0, 0, 0, 0],
-         [0, 0, 0, 0],
-         [0, 0, 0, 0],
-         [0, 0, 0, 0]],
-        [[1, 0, 0, 1],
-         [1, 1, 1, 1],
-         [1, 1, 1, 1],
-         [1, 1, 1, 1]]]])
-    gt = torch.Tensor([[
-        [[0, 0, 0, 0],
-         [0, 0, 0, 0],
-         [0, 0, 0, 0],
-         [0, 0, 0, 0]],
-        [[0, 0, 0, 0],
-         [0, 0, 0, 0],
-         [0, 0, 0, 0],
-         [0, 0, 0, 0]],
-        [[1, 1, 1, 1],
-         [1, 1, 1, 1],
-         [1, 1, 1, 1],
-         [1, 1, 1, 1]]]])
-    print('预测和标签不完全一样,dice={:.4}'.format(1 - smooth_dice(pred, gt)))
