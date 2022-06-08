@@ -2,7 +2,7 @@
 # @Author:FelixFu
 # @Date: 2021.4.14
 # @GitHub:https://github.com/felixfu520
-# @Copy From:
+# @Copy From:https://blog.csdn.net/weixin_42990464/article/details/104260043
 import numpy as np
 import torch
 import torch.nn as nn
