@@ -43,16 +43,16 @@ def diceCoeff(pred, gt, epsilon=1, activation='sigmoid'):
 class DiceLoss(_Loss):
     __name__ = 'dice_loss'
 
-    def __init__(self, num_classes=1, epsilon=1e-5, activation='sigmoid'):
+    def __init__(self, epsilon=1e-5, activation='sigmoid'):
         super(DiceLoss, self).__init__()
         self.epsilon = epsilon
         self.activation = activation
-        self.num_classes = num_classes
 
     def forward(self, y_pred, y_true):
         assert y_pred.size() == y_true.size(), "the size of predict and target must be equal."
         class_dice = []
-        for i in range(1, self.num_classes):
+        num_classes = y_pred.size(1)
+        for i in range(1, num_classes):
             class_dice.append(diceCoeff(y_pred[:, i:i + 1, :], y_true[:, i:i + 1, :], activation=self.activation, epsilon=self.epsilon))
         mean_dice = sum(class_dice) / len(class_dice)
         return 1 - mean_dice
@@ -60,7 +60,7 @@ class DiceLoss(_Loss):
 
 if __name__ == "__main__":
     N, C, H, W = 2, 3, 4, 4
-    loss = DiceLoss(num_classes=C)
+    loss = DiceLoss()
     # 1. 测试分割
     input = torch.randn((N, C, H, W), requires_grad=True)
     target = torch.empty((N, C, H, W)).random_(C)
