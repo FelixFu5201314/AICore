@@ -113,7 +113,7 @@ if __name__ == "__main__":
     如此BCELoss相比CELoss在解决多分类问题的优势就表现了出来。CELoss只是根据每行的分类结果去取值，而BCELoss考虑了每行全部结果。
     """
 
-    # 2. 测试分割(target是整数形式)， 分类同理只是无H,W，特征为一维的
+    # 2. 测试分割
     input = torch.randn((N, C, H, W), requires_grad=True)
     target = torch.empty((N, C, H, W), dtype=torch.float32).random_(C)  # 应该会将C转成one-hot格式
     # print("input:{}".format(input))
