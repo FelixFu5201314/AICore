@@ -23,21 +23,31 @@ if __name__ == "__main__":
 
     N, C, H, W = 2, 3, 4, 4
     loss = CrossEntropyLoss()
+    loss_w = CrossEntropyLoss(weight=torch.ones(C))
 
     # 1. 测试分割(target是整数形式)， 分类同理只是无H,W，特征为一维的
     input = torch.randn((N, C, H, W), requires_grad=True)
     target = torch.empty((N, H, W), dtype=torch.long).random_(C)
-    output = loss(input, target)
     # print("input:{}".format(input))
     # print("target:{}".format(target))
+    output = loss(input, target)
     print("output:{}".format(output))
+    output_w = loss_w(input, target)
+    print("output_w:{}".format(output))
     output.backward()
 
     # 2. 测试分割（target是概率形式，float32）
     input = torch.randn((N, C, H, W), requires_grad=True)
     target = torch.randn((N, C, H, W)).softmax(dim=1)
-    output = loss(input, target)
     # print("input:{}".format(input))
     # print("target:{}".format(target))
+    output = loss(input, target)
     print("output:{}".format(output))
+    output_w = loss_w(input, target)
+    print("output_w:{}".format(output))
     output.backward()
+    
+    # output:1.7510757446289062
+    # output_w:1.7510757446289062
+    # output:1.381339430809021
+    # output_w:1.381339430809021
