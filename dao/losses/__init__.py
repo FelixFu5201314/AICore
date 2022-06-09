@@ -62,21 +62,33 @@ from .IOULoss import IoULoss
 # 如何使用：
 from .TverskyLoss import TverskyLoss
 
+# 4.FocalTverskyLoss
+# TODO
+
+# 5.SensitivitySpecificityLoss
+# TODO
+
+# 6. LogCoshDiceLoss
+# TODO
+
 # ------------------- Boundary-based loss ---------------------------
 # 1.BoundaryLoss
 # 概念：TODO 未找到好的解释博客
 # 如何使用？：参考代码
 from .BoundaryLoss import BoundaryLoss
 
-
-
-
-
-
+# 2. SahpeAwareLoss
+# TODO
 
 # ------------------- Compounded loss -------------------------------
 from .DiceBCELoss import DiceBCELoss
 
+
+"""
+列出所有距离计算
+"""
+# 1. 欧式距离等P-norm距离
+from .EuclideanDistance import EuclideanDistance
 
 
 

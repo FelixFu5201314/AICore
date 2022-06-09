@@ -37,8 +37,11 @@ class EuclideanDistance(_Loss):
 
 if __name__ == "__main__":
     ed = EuclideanDistance()
-    input1 = torch.tensor([[1,0],[3,4]])
-    input2 = torch.tensor([[0,0],[0,0]])
+    input1 = [[1,0],[3,4]]
+    input2 = [[0,0],[0,0]]
+    input1 = torch.tensor(input1, requires_grad=True, dtype=torch.float32)
+    input2 = torch.tensor(input2, requires_grad=True, dtype=torch.float32)
     output = ed(input1, input2)
     print(output)
+    torch.mean(output).backward()
 
