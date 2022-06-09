@@ -12,13 +12,14 @@ from dao.register import Registers
 
 
 @Registers.losses.register
-def L1Loss_DAO(reduction="none"):
+def L1Loss(reduction="mean"):
     return torch.nn.L1Loss(reduction=reduction)
 
 
 if __name__ == "__main__":
-    loss = L1Loss_DAO()
+    loss = L1Loss()
     input = torch.randn(3, 5, requires_grad=True)
     target = torch.randn(3, 5)
     output = loss(input, target)
+    print(output)
     output.backward()
