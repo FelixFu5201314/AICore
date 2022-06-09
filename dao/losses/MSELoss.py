@@ -12,12 +12,12 @@ from dao.register import Registers
 
 
 @Registers.losses.register
-def MSELoss_DAO(reduction="mean"):
+def MSELoss(reduction="mean"):
     return torch.nn.MSELoss(reduction=reduction)
 
 
 if __name__ == "__main__":
-    loss = MSELoss_DAO()
+    loss = MSELoss()
     input = torch.randn(3, 5, requires_grad=True)
     target = torch.randn(3, 5)
     output = loss(input, target)
