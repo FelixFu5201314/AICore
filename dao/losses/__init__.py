@@ -9,14 +9,7 @@
 """
 [A survey of loss functions for semantic segmentation](https://paperswithcode.com/paper/a-survey-of-loss-functions-for-semantic)
 """
-"""
-损失函数                         概念                              优点                                 缺点
-1,NLLLoss
-2,CE
-3,BCE
-4,Focal
-5,
-"""
+
 # * negative log likelihood loss
 # 概念：极大似然估计：https://zhuanlan.zhihu.com/p/26614750；https://blog.csdn.net/zengxiantao1994/article/details/72787849
 # torch API: https://pytorch.org/docs/stable/generated/torch.nn.NLLLoss.html#torch.nn.NLLLoss
@@ -47,15 +40,14 @@ from .BCEWithLogitsLoss import BCEWithLogitsLoss
 # （2）难易样本不均衡
 from .FocalLoss import FocalLoss, FocalLoss_det_cls
 
-
-# ------------------- Boundary-based loss ---------------------------
-# 1.BoundaryLoss
-# 概念：TODO 未找到好的解释博客
-# 如何使用？：参考代码
-from .BoundaryLoss import BoundaryLoss
+# 4.DisPenalizedCE
+# 概念：
+# 如何使用：
+# TODO
+from .DisPenalizedCE import DisPenalizedCE
 
 # ------------------- Region-based loss -----------------------------
-# 1.Dice损失
+# 1.Dice Loss
 # 概念：https://blog.csdn.net/baidu_36511315/article/details/105217674
 # 如何使用：
 from .Dice import DiceLoss
@@ -65,7 +57,21 @@ from .Dice import DiceLoss
 # 如何使用：
 from .IOULoss import IoULoss
 
-# 3.
+# 3.Tversky Loss
+# 概念：https://freewechat.com/a/MzI5MDUyMDIxNA==/2247500026/3
+# 如何使用：
+from .TverskyLoss import TverskyLoss
+
+# ------------------- Boundary-based loss ---------------------------
+# 1.BoundaryLoss
+# 概念：TODO 未找到好的解释博客
+# 如何使用？：参考代码
+from .BoundaryLoss import BoundaryLoss
+
+
+
+
+
 
 
 # ------------------- Compounded loss -------------------------------
