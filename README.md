@@ -424,9 +424,14 @@ normalized[cx,cy,w,h], Dataset的__getitem__返回为image:ndarray(c,h,w), label
 - PaDim [code ref](https://github.com/AICoreRef/PaDiM-Anomaly-Detection-Localization-master) 
 - PaDiM2 [code ref](https://github.com/AICoreRef/ind_knn_ad)
 
-### Loss
+### Loss:[notes](notes/loss/README.md)
 
-
+- **CrossEntropyLoss**: 多分类交叉熵
+- **Binary Cross-Entropy**：二进制交叉熵损失函数 
+- **Weighted Binary Cross-Entropy**：加权交叉熵损失函数
+- **Balanced Cross-Entropy**：平衡交叉熵损失函数
+- **Focal Loss**: [code ref](https://github.com/AICoreRef/SegLoss)
+- 
 
 ### Multi-GPU
 
